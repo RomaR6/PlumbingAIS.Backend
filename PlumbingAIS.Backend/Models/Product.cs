@@ -1,34 +1,19 @@
-﻿using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
-
-namespace PlumbingAIS.Backend.Models
+﻿namespace PlumbingAIS.Backend.Models
 {
-    public class Product
+    public class Product : BaseEntity
     {
-        [Key]
-        public int Id { get; set; }
-
-        [Required]
+        public int CategoryId { get; set; }
+        public int BrandId { get; set; }
+        public int UnitId { get; set; }
         public string SKU { get; set; } = string.Empty;
-
-        [Required]
-        public string Name { get; set; } = string.Empty;
-
-        [Column(TypeName = "decimal(18,2)")]
         public decimal Price { get; set; }
-
+        public decimal MinThreshold { get; set; } = 5.0m;
         public string? Material { get; set; }
         public string? Diameter { get; set; }
-
-        [Required]
-        public int CategoryId { get; set; }
-
-        [Required]
-        public int BrandId { get; set; }
-
-        [Required]
-        public int UnitId { get; set; }
+        public string? ThreadType { get; set; }
 
         public Category? Category { get; set; }
+        public Brand? Brand { get; set; }
+        public Unit? Unit { get; set; }
     }
 }
