@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using PlumbingAIS.Backend.DTOs;
 using PlumbingAIS.Backend.Interfaces;
 using PlumbingAIS.Backend.Models;
 
@@ -15,21 +16,57 @@ namespace PlumbingAIS.Backend.Controllers
             _repository = repository;
         }
 
+        
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Product>>> GetProducts()
+        public async Task<ActionResult<IEnumerable<ProductReadDto>>> GetProducts()
         {
             var products = await _repository.GetAllAsync();
-            return Ok(products);
+
+            var result = products.Select(p => new ProductReadDto
+            {
+                Id = p.Id,
+                SKU = p.SKU,
+                Name = p.Name,
+                Price = p.Price,
+                Material = p.Material,
+                Diameter = p.Diameter,
+                CategoryName = p.Category?.Name ?? "Не вказано"
+            });
+
+            return Ok(result);
         }
 
         [HttpPost]
-        public async Task<ActionResult<Product>> CreateProduct(Product product)
+        public async Task<ActionResult<ProductReadDto>> CreateProduct(ProductCreateDto dto)
         {
-            if (product == null) return BadRequest();
+            if (dto == null) return BadRequest();
+
+            var product = new Product
+            {
+                SKU = dto.SKU,
+                Name = dto.Name,
+                Price = dto.Price,
+                Material = dto.Material,
+                Diameter = dto.Diameter,
+                CategoryId = dto.CategoryId,
+                BrandId = dto.BrandId,
+                UnitId = dto.UnitId
+            };
 
             var createdProduct = await _repository.AddAsync(product);
 
-            return CreatedAtAction(nameof(GetProducts), new { id = createdProduct.Id }, createdProduct);
+            var readDto = new ProductReadDto
+            {
+                Id = createdProduct.Id,
+                SKU = createdProduct.SKU,
+                Name = createdProduct.Name,
+                Price = createdProduct.Price,
+                Material = createdProduct.Material,
+                Diameter = createdProduct.Diameter,
+                CategoryName = "Створено" 
+            };
+
+            return CreatedAtAction(nameof(GetProducts), new { id = readDto.Id }, readDto);
         }
     }
 }
