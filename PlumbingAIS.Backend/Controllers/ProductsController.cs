@@ -16,7 +16,6 @@ namespace PlumbingAIS.Backend.Controllers
             _repository = repository;
         }
 
-        
         [HttpGet]
         public async Task<ActionResult<IEnumerable<ProductReadDto>>> GetProducts()
         {
@@ -30,7 +29,9 @@ namespace PlumbingAIS.Backend.Controllers
                 Price = p.Price,
                 Material = p.Material,
                 Diameter = p.Diameter,
-                CategoryName = p.Category?.Name ?? "Не вказано"
+                CategoryName = p.Category?.Name ?? "Не вказано",
+                BrandName = p.Brand?.Name ?? "Не вказано",
+                UnitName = p.Unit?.Name ?? "Не вказано"
             });
 
             return Ok(result);
@@ -46,8 +47,10 @@ namespace PlumbingAIS.Backend.Controllers
                 SKU = dto.SKU,
                 Name = dto.Name,
                 Price = dto.Price,
+                MinThreshold = dto.MinThreshold,
                 Material = dto.Material,
                 Diameter = dto.Diameter,
+                ThreadType = dto.ThreadType,
                 CategoryId = dto.CategoryId,
                 BrandId = dto.BrandId,
                 UnitId = dto.UnitId
@@ -63,7 +66,7 @@ namespace PlumbingAIS.Backend.Controllers
                 Price = createdProduct.Price,
                 Material = createdProduct.Material,
                 Diameter = createdProduct.Diameter,
-                CategoryName = "Створено" 
+                CategoryName = "Створено"
             };
 
             return CreatedAtAction(nameof(GetProducts), new { id = readDto.Id }, readDto);
