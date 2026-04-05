@@ -9,11 +9,9 @@ namespace PlumbingAIS.Backend.Models
         public int Id { get; set; }
 
         [Required]
-        [MaxLength(50)]
         public string SKU { get; set; } = string.Empty;
 
         [Required]
-        [MaxLength(255)]
         public string Name { get; set; } = string.Empty;
 
         [Column(TypeName = "decimal(18,2)")]
@@ -22,7 +20,15 @@ namespace PlumbingAIS.Backend.Models
         public string? Material { get; set; }
         public string? Diameter { get; set; }
 
+        [Required]
         public int CategoryId { get; set; }
+
+        [Required]
+        public int BrandId { get; set; }
+
+        [Required]
+        public int UnitId { get; set; }
+
         public Category? Category { get; set; }
     }
 }

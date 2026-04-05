@@ -1,6 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using PlumbingAIS.Backend.Data;
+using PlumbingAIS.Backend.Interfaces;
 using PlumbingAIS.Backend.Models;
 
 namespace PlumbingAIS.Backend.Controllers
@@ -9,19 +8,28 @@ namespace PlumbingAIS.Backend.Controllers
     [ApiController]
     public class ProductsController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly IProductRepository _repository;
 
-        public ProductsController(AppDbContext context)
+        public ProductsController(IProductRepository repository)
         {
-            _context = context;
+            _repository = repository;
         }
 
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Product>>> GetProducts()
         {
-            return await _context.Products
-                .Include(p => p.Category)
-                .ToListAsync();
+            var products = await _repository.GetAllAsync();
+            return Ok(products);
+        }
+
+        [HttpPost]
+        public async Task<ActionResult<Product>> CreateProduct(Product product)
+        {
+            if (product == null) return BadRequest();
+
+            var createdProduct = await _repository.AddAsync(product);
+
+            return CreatedAtAction(nameof(GetProducts), new { id = createdProduct.Id }, createdProduct);
         }
     }
 }
