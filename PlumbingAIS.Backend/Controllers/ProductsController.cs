@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using PlumbingAIS.Backend.DTOs;
 using PlumbingAIS.Backend.Interfaces;
 using PlumbingAIS.Backend.Models;
@@ -7,6 +8,7 @@ namespace PlumbingAIS.Backend.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class ProductsController : ControllerBase
     {
         private readonly IProductRepository _repository;
@@ -17,10 +19,10 @@ namespace PlumbingAIS.Backend.Controllers
         }
 
         [HttpGet]
+        [AllowAnonymous]
         public async Task<ActionResult<IEnumerable<ProductReadDto>>> GetProducts()
         {
             var products = await _repository.GetAllAsync();
-
             var result = products.Select(p => new ProductReadDto
             {
                 Id = p.Id,
@@ -33,15 +35,12 @@ namespace PlumbingAIS.Backend.Controllers
                 BrandName = p.Brand?.Name ?? "Не вказано",
                 UnitName = p.Unit?.Name ?? "Не вказано"
             });
-
             return Ok(result);
         }
 
         [HttpPost]
         public async Task<ActionResult<ProductReadDto>> CreateProduct(ProductCreateDto dto)
         {
-            if (dto == null) return BadRequest();
-
             var product = new Product
             {
                 SKU = dto.SKU,
@@ -58,17 +57,7 @@ namespace PlumbingAIS.Backend.Controllers
 
             var createdProduct = await _repository.AddAsync(product);
 
-            var readDto = new ProductReadDto
-            {
-                Id = createdProduct.Id,
-                SKU = createdProduct.SKU,
-                Name = createdProduct.Name,
-                Price = createdProduct.Price,
-                Material = createdProduct.Material,
-                Diameter = createdProduct.Diameter,
-                CategoryName = "Створено"
-            };
-
+            var readDto = new ProductReadDto { Id = createdProduct.Id, Name = createdProduct.Name };
             return CreatedAtAction(nameof(GetProducts), new { id = readDto.Id }, readDto);
         }
     }

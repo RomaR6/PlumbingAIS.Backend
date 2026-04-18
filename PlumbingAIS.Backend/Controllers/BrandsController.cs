@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using PlumbingAIS.Backend.Interfaces;
 using PlumbingAIS.Backend.Models;
 
@@ -6,6 +7,7 @@ namespace PlumbingAIS.Backend.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class BrandsController : ControllerBase
     {
         private readonly IGenericRepository<Brand> _repository;
@@ -16,6 +18,7 @@ namespace PlumbingAIS.Backend.Controllers
         }
 
         [HttpGet]
+        [AllowAnonymous]
         public async Task<ActionResult<IEnumerable<Brand>>> GetBrands()
         {
             var brands = await _repository.GetAllAsync();
@@ -23,6 +26,7 @@ namespace PlumbingAIS.Backend.Controllers
         }
 
         [HttpGet("{id}")]
+        [AllowAnonymous]
         public async Task<ActionResult<Brand>> GetBrand(int id)
         {
             var brand = await _repository.GetByIdAsync(id);

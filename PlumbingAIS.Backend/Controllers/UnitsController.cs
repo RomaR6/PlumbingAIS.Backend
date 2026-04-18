@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using PlumbingAIS.Backend.Interfaces;
 using PlumbingAIS.Backend.Models;
 
@@ -6,6 +7,7 @@ namespace PlumbingAIS.Backend.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize] 
     public class UnitsController : ControllerBase
     {
         private readonly IGenericRepository<Unit> _repository;
@@ -16,6 +18,7 @@ namespace PlumbingAIS.Backend.Controllers
         }
 
         [HttpGet]
+        [AllowAnonymous] 
         public async Task<ActionResult<IEnumerable<Unit>>> GetUnits()
         {
             var units = await _repository.GetAllAsync();
@@ -23,6 +26,7 @@ namespace PlumbingAIS.Backend.Controllers
         }
 
         [HttpGet("{id}")]
+        [AllowAnonymous]
         public async Task<ActionResult<Unit>> GetUnit(int id)
         {
             var unit = await _repository.GetByIdAsync(id);
