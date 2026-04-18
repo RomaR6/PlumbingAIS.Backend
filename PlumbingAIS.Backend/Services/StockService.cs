@@ -21,7 +21,6 @@ namespace PlumbingAIS.Backend.Services
 
         public async Task<bool> ProcessTransactionAsync(int productId, int locationId, decimal quantity, string type, int userId)
         {
-            
             var stocks = await _stockRepo.GetAllAsync();
             var stock = stocks.FirstOrDefault(s => s.ProductId == productId && s.LocationId == locationId);
 
@@ -29,30 +28,26 @@ namespace PlumbingAIS.Backend.Services
 
             if (stock == null)
             {
-                
                 stock = new Stock { ProductId = productId, LocationId = locationId, Quantity = 0 };
                 await _stockRepo.AddAsync(stock);
                 isNew = true;
             }
 
-            // Логіка зміни кількості
             if (type.ToLower() == "in")
             {
                 stock.Quantity += quantity;
             }
             else if (type.ToLower() == "out")
             {
-                if (stock.Quantity < quantity) return false; 
+                if (stock.Quantity < quantity) return false;
                 stock.Quantity -= quantity;
             }
 
-            
             if (!isNew)
             {
                 _stockRepo.Update(stock);
             }
 
-            
             var transaction = new Transaction
             {
                 Type = type,
@@ -62,8 +57,6 @@ namespace PlumbingAIS.Backend.Services
             };
 
             await _transRepo.AddAsync(transaction);
-
-            
             await _stockRepo.SaveAsync();
 
             return true;
@@ -82,6 +75,25 @@ namespace PlumbingAIS.Backend.Services
                     p.MinThreshold
                 })
                 .Where(x => x.CurrentQuantity <= x.MinThreshold);
+        }
+
+        public async Task<decimal> GetTotalStockValueAsync()
+        {
+            var products = await _productRepo.GetAllAsync();
+            var stocks = await _stockRepo.GetAllAsync();
+
+            decimal totalValue = 0;
+
+            foreach (var stock in stocks)
+            {
+                var product = products.FirstOrDefault(p => p.Id == stock.ProductId);
+                if (product != null)
+                {
+                    totalValue += stock.Quantity * product.Price;
+                }
+            }
+
+            return totalValue;
         }
     }
 }

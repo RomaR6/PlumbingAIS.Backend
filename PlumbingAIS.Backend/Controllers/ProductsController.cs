@@ -20,10 +20,34 @@ namespace PlumbingAIS.Backend.Controllers
 
         [HttpGet]
         [AllowAnonymous]
-        public async Task<ActionResult<IEnumerable<ProductReadDto>>> GetProducts()
+        public async Task<ActionResult<IEnumerable<ProductReadDto>>> GetProducts(
+            [FromQuery] string? category,
+            [FromQuery] string? material,
+            [FromQuery] string? search)
         {
             var products = await _repository.GetAllAsync();
-            var result = products.Select(p => new ProductReadDto
+            var query = products.AsQueryable();
+
+            if (!string.IsNullOrEmpty(category))
+            {
+                query = query.Where(p => p.Category != null &&
+                    p.Category.Name.Contains(category, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (!string.IsNullOrEmpty(material))
+            {
+                query = query.Where(p => p.Material != null &&
+                    p.Material.Contains(material, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (!string.IsNullOrEmpty(search))
+            {
+                query = query.Where(p =>
+                    p.Name.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                    p.SKU.Contains(search, StringComparison.OrdinalIgnoreCase));
+            }
+
+            var result = query.Select(p => new ProductReadDto
             {
                 Id = p.Id,
                 SKU = p.SKU,
@@ -35,12 +59,18 @@ namespace PlumbingAIS.Backend.Controllers
                 BrandName = p.Brand?.Name ?? "Не вказано",
                 UnitName = p.Unit?.Name ?? "Не вказано"
             });
+
             return Ok(result);
         }
 
         [HttpPost]
         public async Task<ActionResult<ProductReadDto>> CreateProduct(ProductCreateDto dto)
         {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
             var product = new Product
             {
                 SKU = dto.SKU,
@@ -56,8 +86,8 @@ namespace PlumbingAIS.Backend.Controllers
             };
 
             var createdProduct = await _repository.AddAsync(product);
-
             var readDto = new ProductReadDto { Id = createdProduct.Id, Name = createdProduct.Name };
+
             return CreatedAtAction(nameof(GetProducts), new { id = readDto.Id }, readDto);
         }
     }
