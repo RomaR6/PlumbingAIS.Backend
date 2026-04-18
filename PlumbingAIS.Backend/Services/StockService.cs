@@ -21,24 +21,38 @@ namespace PlumbingAIS.Backend.Services
 
         public async Task<bool> ProcessTransactionAsync(int productId, int locationId, decimal quantity, string type, int userId)
         {
+            
             var stocks = await _stockRepo.GetAllAsync();
             var stock = stocks.FirstOrDefault(s => s.ProductId == productId && s.LocationId == locationId);
 
+            bool isNew = false;
+
             if (stock == null)
             {
+                
                 stock = new Stock { ProductId = productId, LocationId = locationId, Quantity = 0 };
                 await _stockRepo.AddAsync(stock);
+                isNew = true;
             }
 
-            if (type.ToLower() == "in") stock.Quantity += quantity;
+            // Логіка зміни кількості
+            if (type.ToLower() == "in")
+            {
+                stock.Quantity += quantity;
+            }
             else if (type.ToLower() == "out")
             {
-                if (stock.Quantity < quantity) return false;
+                if (stock.Quantity < quantity) return false; 
                 stock.Quantity -= quantity;
             }
 
-            _stockRepo.Update(stock);
+            
+            if (!isNew)
+            {
+                _stockRepo.Update(stock);
+            }
 
+            
             var transaction = new Transaction
             {
                 Type = type,
@@ -46,8 +60,12 @@ namespace PlumbingAIS.Backend.Services
                 Date = DateTime.Now,
                 DocumentNumber = $"TRX-{Guid.NewGuid().ToString().Substring(0, 8)}"
             };
+
             await _transRepo.AddAsync(transaction);
+
+            
             await _stockRepo.SaveAsync();
+
             return true;
         }
 
