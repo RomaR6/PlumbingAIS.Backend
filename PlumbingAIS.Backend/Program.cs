@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using PlumbingAIS.Backend.Data;
 using PlumbingAIS.Backend.Interfaces;
 using PlumbingAIS.Backend.Repositories;
+using PlumbingAIS.Backend.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,6 +18,8 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddScoped<IProductRepository, ProductRepository>();
 builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
+builder.Services.AddScoped<IStockService, StockService>();
+builder.Services.AddSingleton<LoggerService>(); 
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend",
