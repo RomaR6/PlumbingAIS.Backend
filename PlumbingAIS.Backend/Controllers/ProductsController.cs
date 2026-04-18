@@ -55,9 +55,9 @@ namespace PlumbingAIS.Backend.Controllers
                 Price = p.Price,
                 Material = p.Material,
                 Diameter = p.Diameter,
-                CategoryName = p.Category?.Name ?? "Не вказано",
-                BrandName = p.Brand?.Name ?? "Не вказано",
-                UnitName = p.Unit?.Name ?? "Не вказано"
+                CategoryName = p.Category != null ? p.Category.Name : "Не вказано",
+                BrandName = p.Brand != null ? p.Brand.Name : "Не вказано",
+                UnitName = p.Unit != null ? p.Unit.Name : "Не вказано"
             });
 
             return Ok(result);

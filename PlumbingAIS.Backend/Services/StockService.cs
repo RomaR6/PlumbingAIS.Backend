@@ -19,7 +19,7 @@ namespace PlumbingAIS.Backend.Services
             _productRepo = productRepo;
         }
 
-        public async Task<bool> ProcessTransactionAsync(int productId, int locationId, decimal quantity, string type, int userId)
+        public async Task<bool> ProcessTransactionAsync(int productId, int locationId, decimal quantity, string type, int userId, int? contractorId = null)
         {
             var stocks = await _stockRepo.GetAllAsync();
             var stock = stocks.FirstOrDefault(s => s.ProductId == productId && s.LocationId == locationId);
@@ -52,6 +52,7 @@ namespace PlumbingAIS.Backend.Services
             {
                 Type = type,
                 UserId = userId,
+                ContractorId = contractorId,
                 Date = DateTime.Now,
                 DocumentNumber = $"TRX-{Guid.NewGuid().ToString().Substring(0, 8)}"
             };

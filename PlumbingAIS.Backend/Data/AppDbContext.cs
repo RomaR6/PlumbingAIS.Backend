@@ -7,7 +7,6 @@ namespace PlumbingAIS.Backend.Data
     {
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
-
         public DbSet<Role> Roles { get; set; }
         public DbSet<User> Users { get; set; }
         public DbSet<Category> Categories { get; set; }
@@ -21,5 +20,30 @@ namespace PlumbingAIS.Backend.Data
         public DbSet<Transaction> Transactions { get; set; }
         public DbSet<ActionLog> ActionLogs { get; set; }
 
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            base.OnModelCreating(modelBuilder);
+
+            
+            modelBuilder.Entity<Role>().HasData(
+                new Role { Id = 1, Name = "Admin" },
+                new Role { Id = 2, Name = "Manager" }
+            );
+
+            
+            modelBuilder.Entity<Category>().HasData(
+                new Category { Id = 1, Name = "Труби" },
+                new Category { Id = 2, Name = "Фітинги" },
+                new Category { Id = 3, Name = "Змішувачі" },
+                new Category { Id = 4, Name = "Кераміка" }
+            );
+
+            
+            modelBuilder.Entity<Unit>().HasData(
+                new Unit { Id = 1, Name = "шт" },
+                new Unit { Id = 2, Name = "м" },
+                new Unit { Id = 3, Name = "комплект" }
+            );
+        }
     }
 }
