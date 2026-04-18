@@ -7,6 +7,7 @@ using PlumbingAIS.Backend.Interfaces;
 using PlumbingAIS.Backend.Models;
 using PlumbingAIS.Backend.Repositories;
 using PlumbingAIS.Backend.Services;
+using PlumbingAIS.Backend.Middleware;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -61,6 +62,8 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+app.UseMiddleware<ExceptionMiddleware>();
 
 var loggerService = app.Services.GetRequiredService<LoggerService>();
 loggerService.OnActionExecuted += (action, userId) =>
