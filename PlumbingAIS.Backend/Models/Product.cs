@@ -2,9 +2,9 @@
 {
     public class Product : BaseEntity
     {
-        public int CategoryId { get; set; }
-        public int BrandId { get; set; }
-        public int UnitId { get; set; }
+        public int? CategoryId { get; set; }
+        public int? BrandId { get; set; }
+        public int? UnitId { get; set; }
         public string SKU { get; set; } = string.Empty;
         public decimal Price { get; set; }
         public decimal MinThreshold { get; set; } = 5.0m;

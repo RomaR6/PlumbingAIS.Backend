@@ -8,7 +8,6 @@ namespace PlumbingAIS.Backend.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize]
     public class ProductsController : ControllerBase
     {
         private readonly IProductRepository _repository;
@@ -19,7 +18,6 @@ namespace PlumbingAIS.Backend.Controllers
         }
 
         [HttpGet]
-        [AllowAnonymous]
         public async Task<ActionResult<IEnumerable<ProductReadDto>>> GetProducts(
             [FromQuery] string? category,
             [FromQuery] string? material,
@@ -55,6 +53,7 @@ namespace PlumbingAIS.Backend.Controllers
                 Price = p.Price,
                 Material = p.Material,
                 Diameter = p.Diameter,
+                ThreadType = p.ThreadType,
                 CategoryName = p.Category != null ? p.Category.Name : "Не вказано",
                 BrandName = p.Brand != null ? p.Brand.Name : "Не вказано",
                 UnitName = p.Unit != null ? p.Unit.Name : "Не вказано"
@@ -63,32 +62,35 @@ namespace PlumbingAIS.Backend.Controllers
             return Ok(result);
         }
 
-        [HttpPost]
-        public async Task<ActionResult<ProductReadDto>> CreateProduct(ProductCreateDto dto)
+        [HttpGet("{id}")]
+        public async Task<ActionResult<Product>> GetProduct(int id)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
+            var product = await _repository.GetByIdAsync(id);
+            if (product == null) return NotFound();
+            return Ok(product);
+        }
 
-            var product = new Product
-            {
-                SKU = dto.SKU,
-                Name = dto.Name,
-                Price = dto.Price,
-                MinThreshold = dto.MinThreshold,
-                Material = dto.Material,
-                Diameter = dto.Diameter,
-                ThreadType = dto.ThreadType,
-                CategoryId = dto.CategoryId,
-                BrandId = dto.BrandId,
-                UnitId = dto.UnitId
-            };
-
+        [HttpPost]
+        public async Task<ActionResult<ProductReadDto>> CreateProduct(Product product)
+        {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
             var createdProduct = await _repository.AddAsync(product);
-            var readDto = new ProductReadDto { Id = createdProduct.Id, Name = createdProduct.Name };
+            return CreatedAtAction(nameof(GetProduct), new { id = createdProduct.Id }, createdProduct);
+        }
 
-            return CreatedAtAction(nameof(GetProducts), new { id = readDto.Id }, readDto);
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateProduct(int id, Product product)
+        {
+            if (id != product.Id) return BadRequest();
+            await _repository.UpdateAsync(product);
+            return NoContent();
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteProduct(int id)
+        {
+            await _repository.DeleteAsync(id);
+            return NoContent();
         }
     }
 }
