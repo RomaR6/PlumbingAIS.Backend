@@ -33,11 +33,11 @@ namespace PlumbingAIS.Backend.Services
                 isNew = true;
             }
 
-            if (type.ToLower() == "in")
+            if (type.ToLower().Contains("in"))
             {
                 stock.Quantity += quantity;
             }
-            else if (type.ToLower() == "out")
+            else if (type.ToLower().Contains("out"))
             {
                 if (stock.Quantity < quantity) return false;
                 stock.Quantity -= quantity;
@@ -61,6 +61,15 @@ namespace PlumbingAIS.Backend.Services
             await _stockRepo.SaveAsync();
 
             return true;
+        }
+
+        public async Task<bool> MoveStockAsync(int productId, int fromLocationId, int toLocationId, decimal quantity, int userId)
+        {
+            var outSuccess = await ProcessTransactionAsync(productId, fromLocationId, quantity, "Move_Out", userId);
+            if (!outSuccess) return false;
+
+            var inSuccess = await ProcessTransactionAsync(productId, toLocationId, quantity, "Move_In", userId);
+            return inSuccess;
         }
 
         public async Task<IEnumerable<object>> GetCriticalStocksAsync()
