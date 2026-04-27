@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using PlumbingAIS.Backend.Data;
 using PlumbingAIS.Backend.Interfaces;
 using PlumbingAIS.Backend.Models;
+using System.Security.Claims;
 
 namespace PlumbingAIS.Backend.Controllers
 {
@@ -14,20 +15,22 @@ namespace PlumbingAIS.Backend.Controllers
     {
         private readonly IGenericRepository<Location> _repository;
         private readonly AppDbContext _context;
+        private readonly ILoggerService _logger;
 
-        public LocationsController(IGenericRepository<Location> repository, AppDbContext context)
+        public LocationsController(IGenericRepository<Location> repository, AppDbContext context, ILoggerService logger)
         {
             _repository = repository;
             _context = context;
+            _logger = logger;
         }
+
+        private int GetUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
         [HttpGet]
         [AllowAnonymous]
         public async Task<ActionResult<IEnumerable<Location>>> Get()
         {
-            var locations = await _context.Locations
-                .Include(l => l.Warehouse)
-                .ToListAsync();
+            var locations = await _context.Locations.Include(l => l.Warehouse).ToListAsync();
             return Ok(locations);
         }
 
@@ -37,6 +40,7 @@ namespace PlumbingAIS.Backend.Controllers
         {
             await _repository.AddAsync(location);
             await _repository.SaveAsync();
+            await _logger.LogActionAsync($"Створено нову локацію: Ряд {location.RowCode}, Стелаж {location.RackCode}", GetUserId());
             return Ok(location);
         }
 
@@ -47,28 +51,14 @@ namespace PlumbingAIS.Backend.Controllers
             var location = await _context.Locations.FindAsync(id);
             if (location == null) return NotFound();
 
-            var hasActiveStock = await _context.Stocks.AnyAsync(s => s.LocationId == id && s.Quantity > 0);
-            if (hasActiveStock)
-            {
-                return BadRequest(new { message = "Неможливо видалити локацію, оскільки на ній зберігаються товари. Спочатку перемістіть їх." });
-            }
+            if (await _context.Stocks.AnyAsync(s => s.LocationId == id && s.Quantity > 0))
+                return BadRequest(new { message = "Неможливо видалити локацію, оскільки на ній є товари." });
 
-            var emptyStocks = await _context.Stocks.Where(s => s.LocationId == id).ToListAsync();
-            if (emptyStocks.Any())
-            {
-                _context.Stocks.RemoveRange(emptyStocks);
-            }
-
-            try
-            {
-                _context.Locations.Remove(location);
-                await _context.SaveChangesAsync();
-                return NoContent();
-            }
-            catch (Exception)
-            {
-                return BadRequest(new { message = "Локація використовується в історії операцій і не може бути видалена." });
-            }
+            var info = $"Ряд {location.RowCode}, Стелаж {location.RackCode}";
+            _context.Locations.Remove(location);
+            await _context.SaveChangesAsync();
+            await _logger.LogActionAsync($"Видалено локацію: {info}", GetUserId());
+            return NoContent();
         }
     }
 }

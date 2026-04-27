@@ -35,7 +35,7 @@ builder.Services.AddScoped<IProductRepository, ProductRepository>();
 builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
 builder.Services.AddScoped<IStockService, StockService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
-builder.Services.AddSingleton<LoggerService>();
+builder.Services.AddScoped<ILoggerService, LoggerService>();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -65,23 +65,6 @@ var app = builder.Build();
 
 app.UseMiddleware<ExceptionMiddleware>();
 
-var loggerService = app.Services.GetRequiredService<LoggerService>();
-loggerService.OnActionExecuted += (action, userId) =>
-{
-    using (var scope = app.Services.CreateScope())
-    {
-        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var log = new ActionLog
-        {
-            Action = action,
-            UserId = userId,
-            Timestamp = DateTime.Now
-        };
-        dbContext.ActionLogs.Add(log);
-        dbContext.SaveChanges();
-    }
-};
-
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -96,4 +79,4 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-app.Run();
+app.Run();  

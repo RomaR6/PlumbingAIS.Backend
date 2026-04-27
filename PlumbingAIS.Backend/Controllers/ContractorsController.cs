@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using PlumbingAIS.Backend.Interfaces;
 using PlumbingAIS.Backend.Models;
+using System.Security.Claims;
 
 namespace PlumbingAIS.Backend.Controllers
 {
@@ -11,18 +12,18 @@ namespace PlumbingAIS.Backend.Controllers
     public class ContractorsController : ControllerBase
     {
         private readonly IGenericRepository<Contractor> _repository;
+        private readonly ILoggerService _logger;
 
-        public ContractorsController(IGenericRepository<Contractor> repository)
+        public ContractorsController(IGenericRepository<Contractor> repository, ILoggerService logger)
         {
             _repository = repository;
+            _logger = logger;
         }
 
+        private int GetUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Contractor>>> GetAll()
-        {
-            var contractors = await _repository.GetAllAsync();
-            return Ok(contractors);
-        }
+        public async Task<ActionResult<IEnumerable<Contractor>>> GetAll() => Ok(await _repository.GetAllAsync());
 
         [HttpGet("{id}")]
         public async Task<ActionResult<Contractor>> GetById(int id)
@@ -37,9 +38,9 @@ namespace PlumbingAIS.Backend.Controllers
         public async Task<ActionResult<Contractor>> Create(Contractor contractor)
         {
             if (contractor == null) return BadRequest();
-
             await _repository.AddAsync(contractor);
             await _repository.SaveAsync();
+            await _logger.LogActionAsync($"Додано нового контрагента: {contractor.Name}", GetUserId());
             return CreatedAtAction(nameof(GetById), new { id = contractor.Id }, contractor);
         }
 
@@ -49,9 +50,10 @@ namespace PlumbingAIS.Backend.Controllers
         {
             var contractor = await _repository.GetByIdAsync(id);
             if (contractor == null) return NotFound();
-
+            var name = contractor.Name;
             _repository.Delete(contractor);
             await _repository.SaveAsync();
+            await _logger.LogActionAsync($"Видалено контрагента: {name}", GetUserId());
             return NoContent();
         }
     }

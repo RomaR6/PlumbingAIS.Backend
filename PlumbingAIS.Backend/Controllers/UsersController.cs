@@ -15,19 +15,22 @@ namespace PlumbingAIS.Backend.Controllers
     {
         private readonly IGenericRepository<User> _userRepo;
         private readonly AppDbContext _context;
+        private readonly ILoggerService _logger;
 
-        public UsersController(IGenericRepository<User> userRepo, AppDbContext context)
+        public UsersController(IGenericRepository<User> userRepo, AppDbContext context, ILoggerService logger)
         {
             _userRepo = userRepo;
             _context = context;
+            _logger = logger;
         }
+
+        private int GetUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
         [HttpGet]
         public async Task<IActionResult> GetEmployees()
         {
             var users = await _context.Users.Include(u => u.Role).ToListAsync();
-
-            var result = users.Select(u => new
+            return Ok(users.Select(u => new
             {
                 u.Id,
                 u.Username,
@@ -35,9 +38,7 @@ namespace PlumbingAIS.Backend.Controllers
                 u.LastName,
                 u.CreatedAt,
                 Role = u.Role?.Name ?? "User"
-            });
-
-            return Ok(result);
+            }));
         }
 
         [HttpPut("{id}/role")]
@@ -46,27 +47,17 @@ namespace PlumbingAIS.Backend.Controllers
             var user = await _context.Users.Include(u => u.Role).FirstOrDefaultAsync(u => u.Id == id);
             if (user == null) return NotFound();
 
-            var oldRole = user.Role?.Name ?? "User";
             var role = await _context.Roles.FirstOrDefaultAsync(r => r.Name == dto.Role);
+            if (role == null) return BadRequest(new { message = "Такої ролі не існує" });
 
-            if (role != null)
-            {
-                user.RoleId = role.Id;
-                _context.Users.Update(user);
+            var oldRole = user.Role?.Name ?? "User";
+            user.RoleId = role.Id;
 
-                var log = new ActionLog
-                {
-                    Action = $"Зміна ролі користувача {user.Username}: {oldRole} -> {dto.Role}",
-                    UserId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!),
-                    Timestamp = DateTime.Now
-                };
-                _context.ActionLogs.Add(log);
+            _context.Users.Update(user);
+            await _logger.LogActionAsync($"Зміна ролі {user.Username}: {oldRole} -> {dto.Role}", GetUserId());
+            await _context.SaveChangesAsync();
 
-                await _context.SaveChangesAsync();
-                return NoContent();
-            }
-
-            return BadRequest(new { message = "Такої ролі не існує" });
+            return NoContent();
         }
 
         [HttpDelete("{id}")]
@@ -75,32 +66,28 @@ namespace PlumbingAIS.Backend.Controllers
             var user = await _userRepo.GetByIdAsync(id);
             if (user == null) return NotFound();
 
-            var currentUserIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (currentUserIdStr == id.ToString())
-            {
-                return BadRequest(new { message = "Ви не можете видалити власний акаунт" });
-            }
+            var currentId = GetUserId();
+            if (currentId == id) return BadRequest(new { message = "Ви не можете видалити власний акаунт" });
 
             var userLogs = await _context.ActionLogs.Where(l => l.UserId == id).ToListAsync();
             foreach (var logItem in userLogs)
             {
                 logItem.UserId = null;
             }
+            await _context.SaveChangesAsync();
 
-            var deleteLog = new ActionLog
-            {
-                Action = $"Видалення акаунту користувача: {user.Username}",
-                UserId = int.Parse(currentUserIdStr!),
-                Timestamp = DateTime.Now
-            };
+            var username = user.Username;
+            await _logger.LogActionAsync($"Видалення акаунту користувача: {username}", currentId);
 
             _userRepo.Delete(user);
-            _context.ActionLogs.Add(deleteLog);
-
             await _context.SaveChangesAsync();
+
             return NoContent();
         }
     }
 
-    public class RoleUpdateDto { public string Role { get; set; } = string.Empty; }
+    public class RoleUpdateDto
+    {
+        public string Role { get; set; } = string.Empty;
+    }
 }

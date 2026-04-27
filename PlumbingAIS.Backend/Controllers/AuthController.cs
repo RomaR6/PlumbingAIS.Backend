@@ -15,33 +15,25 @@ namespace PlumbingAIS.Backend.Controllers
     {
         private readonly IAuthService _authService;
         private readonly AppDbContext _context;
+        private readonly ILoggerService _logger;
 
-        public AuthController(IAuthService authService, AppDbContext context)
+        public AuthController(IAuthService authService, AppDbContext context, ILoggerService logger)
         {
             _authService = authService;
             _context = context;
+            _logger = logger;
         }
 
         [HttpPost("register")]
         [AllowAnonymous]
         public async Task<IActionResult> Register(UserRegisterDto dto)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
+            if (!ModelState.IsValid) return BadRequest(ModelState);
 
             var user = await _authService.RegisterAsync(dto);
-            if (user == null)
-                return BadRequest(new { message = "Користувач із таким логіном вже існує" });
+            if (user == null) return BadRequest(new { message = "Користувач із таким логіном вже існує" });
 
-            var log = new ActionLog
-            {
-                Action = $"Нова реєстрація: {user.Username}",
-                UserId = user.Id,
-                Timestamp = DateTime.Now
-            };
-            _context.ActionLogs.Add(log);
-            await _context.SaveChangesAsync();
-
+            await _logger.LogActionAsync($"Нова реєстрація: {user.Username}", user.Id);
             return Ok(new { message = "Реєстрація успішна" });
         }
 
@@ -49,23 +41,15 @@ namespace PlumbingAIS.Backend.Controllers
         [AllowAnonymous]
         public async Task<IActionResult> Login(UserLoginDto dto)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
+            if (!ModelState.IsValid) return BadRequest(ModelState);
 
             var token = await _authService.LoginAsync(dto);
-            if (token == null)
-                return Unauthorized(new { message = "Невірний логін або пароль" });
+            if (token == null) return Unauthorized(new { message = "Невірний логін або пароль" });
 
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == dto.Username);
             if (user != null)
             {
-                _context.ActionLogs.Add(new ActionLog
-                {
-                    Action = "Вхід у систему",
-                    UserId = user.Id,
-                    Timestamp = DateTime.Now
-                });
-                await _context.SaveChangesAsync();
+                await _logger.LogActionAsync("Вхід у систему", user.Id);
             }
 
             return Ok(new { token });
@@ -81,8 +65,7 @@ namespace PlumbingAIS.Backend.Controllers
                 new { Id = 2, Name = "Manager", Description = "Управління товарами та складом" },
                 new { Id = 3, Name = "User", Description = "Перегляд товарів та створення транзакцій" }
             };
-
             return Ok(roles);
         }
     }
-}  
+}

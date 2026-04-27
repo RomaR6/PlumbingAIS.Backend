@@ -7,6 +7,7 @@ using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 using System.Text;
+using System.Security.Claims;
 
 namespace PlumbingAIS.Backend.Controllers
 {
@@ -17,44 +18,38 @@ namespace PlumbingAIS.Backend.Controllers
     {
         private readonly IStockService _stockService;
         private readonly AppDbContext _context;
+        private readonly ILoggerService _logger;
 
-        public ReportsController(IStockService stockService, AppDbContext context)
+        public ReportsController(IStockService stockService, AppDbContext context, ILoggerService logger)
         {
             _stockService = stockService;
             _context = context;
+            _logger = logger;
             QuestPDF.Settings.License = LicenseType.Community;
         }
 
+        private int GetUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
         [HttpGet("total-value")]
-        public async Task<IActionResult> GetTotalValue()
-        {
-            var value = await _stockService.GetTotalStockValueAsync();
-            return Ok(new { totalValue = value, currency = "UAH" });
-        }
+        public async Task<IActionResult> GetTotalValue() => Ok(new { totalValue = await _stockService.GetTotalStockValueAsync(), currency = "UAH" });
 
         [HttpGet("inventory-check")]
         public async Task<IActionResult> GetInventoryReport()
         {
-            var criticalItems = await _context.Products
+            var critical = await _context.Products
                 .Where(p => _context.Stocks.Any(s => s.ProductId == p.Id))
                 .Select(p => new
                 {
                     p.Id,
                     p.Name,
                     p.SKU,
-                    Quantity = _context.Stocks
-                        .Where(s => s.ProductId == p.Id)
-                        .Sum(s => (int?)s.Quantity) ?? 0
+                    p.MinThreshold,
+                    Quantity = _context.Stocks.Where(s => s.ProductId == p.Id).Sum(s => (int?)s.Quantity) ?? 0
                 })
-                .Where(x => x.Quantity < 5)
+                .Where(x => x.Quantity < x.MinThreshold)
                 .ToListAsync();
 
-            return Ok(new
-            {
-                reportDate = DateTime.Now,
-                criticalItemsCount = criticalItems.Count,
-                items = criticalItems
-            });
+            return Ok(new { reportDate = DateTime.Now, criticalItemsCount = critical.Count, items = critical });
         }
 
         [HttpGet("export-csv")]
@@ -66,23 +61,22 @@ namespace PlumbingAIS.Backend.Controllers
                 {
                     p.SKU,
                     p.Name,
-                    Quantity = _context.Stocks
-                        .Where(s => s.ProductId == p.Id)
-                        .Sum(s => (int?)s.Quantity) ?? 0
+                    p.MinThreshold,
+                    Quantity = _context.Stocks.Where(s => s.ProductId == p.Id).Sum(s => (int?)s.Quantity) ?? 0
                 })
                 .ToListAsync();
 
             var csv = new StringBuilder();
-            csv.AppendLine("Артикул;Назва товару;Залишок;Статус");
+            csv.AppendLine("Артикул;Назва товару;Залишок;Поріг;Статус");
 
             foreach (var item in items)
             {
-                string status = item.Quantity < 5 ? "ДЕФІЦИТ" : "В НАЯВНОСТІ";
-                csv.AppendLine($"{item.SKU};{item.Name};{item.Quantity};{status}");
+                string status = item.Quantity < item.MinThreshold ? "ДЕФІЦИТ" : "В НАЯВНОСТІ";
+                csv.AppendLine($"{item.SKU};{item.Name};{item.Quantity};{item.MinThreshold};{status}");
             }
 
-            var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csv.ToString())).ToArray();
-            return File(bytes, "text/csv", $"inventory_{DateTime.Now:yyyyMMdd}.csv");
+            await _logger.LogActionAsync("Експорт звіту інвентаризації (CSV)", GetUserId());
+            return File(Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csv.ToString())).ToArray(), "text/csv", $"inventory_{DateTime.Now:yyyyMMdd}.csv");
         }
 
         [HttpGet("export-pdf")]
@@ -94,76 +88,50 @@ namespace PlumbingAIS.Backend.Controllers
                 {
                     p.SKU,
                     p.Name,
-                    Quantity = _context.Stocks
-                        .Where(s => s.ProductId == p.Id)
-                        .Sum(s => (int?)s.Quantity) ?? 0
+                    p.MinThreshold,
+                    Quantity = _context.Stocks.Where(s => s.ProductId == p.Id).Sum(s => (int?)s.Quantity) ?? 0
                 })
                 .ToListAsync();
 
-            var document = Document.Create(container =>
-            {
-                container.Page(page =>
-                {
+            var document = Document.Create(container => {
+                container.Page(page => {
                     page.Size(PageSizes.A4);
                     page.Margin(1, Unit.Centimetre);
-                    page.PageColor(Colors.White);
-                    page.DefaultTextStyle(x => x.FontSize(10).FontFamily(Fonts.Verdana));
+                    page.Header().Text("ВІДОМІСТЬ ІНВЕНТАРИЗАЦІЇ").FontSize(20).SemiBold();
 
-                    page.Header().Row(row =>
-                    {
-                        row.RelativeItem().Column(col =>
-                        {
-                            col.Item().Text("ВІДОМІСТЬ ІНВЕНТАРИЗАЦІЇ").FontSize(20).SemiBold().FontColor(Colors.Blue.Medium);
-                            col.Item().Text($"Дата формування: {DateTime.Now:dd.MM.yyyy HH:mm}").FontSize(10).FontColor(Colors.Grey.Medium);
-                        });
-                    });
-
-                    page.Content().PaddingVertical(15).Table(table =>
-                    {
-                        table.ColumnsDefinition(columns =>
-                        {
-                            columns.ConstantColumn(100);
-                            columns.RelativeColumn();
-                            columns.ConstantColumn(80);
-                            columns.ConstantColumn(100);
+                    page.Content().PaddingVertical(10).Table(table => {
+                        table.ColumnsDefinition(c => {
+                            c.ConstantColumn(100);
+                            c.RelativeColumn();
+                            c.ConstantColumn(60);
+                            c.ConstantColumn(60);
+                            c.ConstantColumn(80);
                         });
 
-                        table.Header(header =>
-                        {
-                            header.Cell().Element(CellStyle).Text("Артикул");
-                            header.Cell().Element(CellStyle).Text("Назва товару");
-                            header.Cell().Element(CellStyle).Text("Залишок");
-                            header.Cell().Element(CellStyle).Text("Статус");
-
-                            static IContainer CellStyle(IContainer container) =>
-                                container.DefaultTextStyle(x => x.SemiBold()).PaddingVertical(5).BorderBottom(1).BorderColor(Colors.Black);
+                        table.Header(h => {
+                            h.Cell().Text("Артикул").Bold();
+                            h.Cell().Text("Назва").Bold();
+                            h.Cell().Text("Залишок").Bold();
+                            h.Cell().Text("Поріг").Bold();
+                            h.Cell().Text("Статус").Bold();
                         });
 
-                        foreach (var item in items)
+                        foreach (var i in items)
                         {
-                            table.Cell().Element(RowStyle).Text(item.SKU);
-                            table.Cell().Element(RowStyle).Text(item.Name);
-                            table.Cell().Element(RowStyle).Text(item.Quantity.ToString());
-
-                            var isLow = item.Quantity < 5;
-                            table.Cell().Element(RowStyle).Text(isLow ? "ДЕФІЦИТ" : "ОК")
-                                 .FontColor(isLow ? Colors.Red.Medium : Colors.Green.Medium).Bold();
-
-                            static IContainer RowStyle(IContainer container) =>
-                                container.BorderBottom(1).BorderColor(Colors.Grey.Lighten2).PaddingVertical(5);
+                            bool isLow = i.Quantity < i.MinThreshold;
+                            table.Cell().Text(i.SKU);
+                            table.Cell().Text(i.Name);
+                            table.Cell().Text(i.Quantity.ToString());
+                            table.Cell().Text(i.MinThreshold.ToString());
+                            table.Cell().Text(isLow ? "ДЕФІЦИТ" : "ОК")
+                                .FontColor(isLow ? Colors.Red.Medium : Colors.Green.Medium).Bold();
                         }
-                    });
-
-                    page.Footer().AlignCenter().Text(x =>
-                    {
-                        x.Span("Сторінка ");
-                        x.CurrentPageNumber();
                     });
                 });
             });
 
-            var pdfBytes = document.GeneratePdf();
-            return File(pdfBytes, "application/pdf", $"inventory_report_{DateTime.Now:yyyyMMdd}.pdf");
+            await _logger.LogActionAsync("Експорт звіту інвентаризації (PDF)", GetUserId());
+            return File(document.GeneratePdf(), "application/pdf", $"inventory_{DateTime.Now:yyyyMMdd}.pdf");
         }
     }
 }
