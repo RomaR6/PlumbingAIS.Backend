@@ -47,19 +47,16 @@ namespace PlumbingAIS.Backend.Controllers
             var location = await _context.Locations.FindAsync(id);
             if (location == null) return NotFound();
 
-        
-            var stocksOnLocation = await _context.Stocks
-                .Where(s => s.LocationId == id)
-                .ToListAsync();
-
-            if (stocksOnLocation.Any(s => s.Quantity > 0))
+            var hasActiveStock = await _context.Stocks.AnyAsync(s => s.LocationId == id && s.Quantity > 0);
+            if (hasActiveStock)
             {
                 return BadRequest(new { message = "Неможливо видалити локацію, оскільки на ній зберігаються товари. Спочатку перемістіть їх." });
             }
 
-            if (stocksOnLocation.Any())
+            var emptyStocks = await _context.Stocks.Where(s => s.LocationId == id).ToListAsync();
+            if (emptyStocks.Any())
             {
-                _context.Stocks.RemoveRange(stocksOnLocation);
+                _context.Stocks.RemoveRange(emptyStocks);
             }
 
             try
@@ -68,9 +65,9 @@ namespace PlumbingAIS.Backend.Controllers
                 await _context.SaveChangesAsync();
                 return NoContent();
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return BadRequest(new { message = "Помилка бази даних при видаленні: " + ex.Message });
+                return BadRequest(new { message = "Локація використовується в історії операцій і не може бути видалена." });
             }
         }
     }
