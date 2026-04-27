@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using System;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PlumbingAIS.Backend.DTOs;
@@ -53,6 +54,30 @@ namespace PlumbingAIS.Backend.Controllers
             }
 
             return Ok(new { token });
+        }
+
+        [HttpGet("profile")]
+        [Authorize]
+        public async Task<IActionResult> GetProfile()
+        {
+            var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (userIdStr == null) return Unauthorized();
+
+            var user = await _context.Users
+                .Include(u => u.Role)
+                .FirstOrDefaultAsync(u => u.Id == int.Parse(userIdStr));
+
+            if (user == null) return NotFound();
+
+            return Ok(new
+            {
+                user.Id,
+                user.Username,
+                user.FirstName,
+                user.LastName,
+                user.CreatedAt,
+                Role = user.RoleName
+            });
         }
 
         [HttpGet("roles")]
