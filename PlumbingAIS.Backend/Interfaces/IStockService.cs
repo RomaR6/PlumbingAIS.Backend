@@ -1,12 +1,13 @@
 ﻿using PlumbingAIS.Backend.Models;
+using PlumbingAIS.Backend.DTOs;
 
 namespace PlumbingAIS.Backend.Interfaces
 {
     public interface IStockService
     {
-        Task<bool> ProcessTransactionAsync(int productId, int locationId, decimal quantity, string type, int userId, int? contractorId = null);
+        Task<int> ProcessGroupTransactionAsync(TransactionRequestDto request, int userId);
         Task<IEnumerable<object>> GetCriticalStocksAsync();
         Task<decimal> GetTotalStockValueAsync();
-        Task<bool> MoveStockAsync(int productId, int fromLocationId, int toLocationId, decimal quantity, int userId);
+        Task<int> MoveStockAsync(int productId, int fromLocationId, int toLocationId, decimal quantity, int userId, string? description = null);
     }
 }

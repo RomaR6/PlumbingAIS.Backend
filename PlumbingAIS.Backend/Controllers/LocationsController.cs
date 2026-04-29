@@ -51,8 +51,12 @@ namespace PlumbingAIS.Backend.Controllers
             var location = await _context.Locations.FindAsync(id);
             if (location == null) return NotFound();
 
+            var emptyStocks = _context.Stocks.Where(s => s.LocationId == id && s.Quantity <= 0);
+            _context.Stocks.RemoveRange(emptyStocks);
+            await _context.SaveChangesAsync();
+
             if (await _context.Stocks.AnyAsync(s => s.LocationId == id && s.Quantity > 0))
-                return BadRequest(new { message = "Неможливо видалити локацію, оскільки на ній є товари." });
+                return BadRequest(new { message = "Неможливо видалити локацію, оскільки на ній фактично є товари." });
 
             var info = $"Ряд {location.RowCode}, Стелаж {location.RackCode}";
             _context.Locations.Remove(location);

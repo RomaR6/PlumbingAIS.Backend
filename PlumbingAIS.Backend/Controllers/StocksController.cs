@@ -2,6 +2,7 @@
 using PlumbingAIS.Backend.Interfaces;
 using PlumbingAIS.Backend.Data;
 using PlumbingAIS.Backend.Models;
+using PlumbingAIS.Backend.DTOs;
 using Microsoft.EntityFrameworkCore;
 using System.Threading.Tasks;
 using System.Security.Claims;
@@ -31,42 +32,58 @@ namespace PlumbingAIS.Backend.Controllers
             var stocks = await _context.Stocks
                 .Include(s => s.Product)
                 .Include(s => s.Location)
-                    .ThenInclude(l => l.Warehouse)
+                    .ThenInclude(l => l != null ? l.Warehouse : null)
                 .ToListAsync();
 
             return Ok(stocks);
         }
 
         [HttpPost("transaction")]
-        public async Task<IActionResult> CreateTransaction(int productId, int locationId, decimal quantity, string type, int? contractorId = null)
+        public async Task<IActionResult> CreateTransaction([FromBody] TransactionRequestDto dto)
         {
             var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            int userId = userIdClaim != null ? int.Parse(userIdClaim) : 1;
+            if (userIdClaim == null) return Unauthorized();
+            int userId = int.Parse(userIdClaim);
 
-            var success = await _stockService.ProcessTransactionAsync(productId, locationId, quantity, type, userId, contractorId);
+            int transactionId = await _stockService.ProcessGroupTransactionAsync(dto, userId);
 
-            if (!success)
-                return BadRequest(new { message = "Помилка транзакції" });
+            if (transactionId == 0)
+                return BadRequest(new { message = "Помилка транзакції. Перевірте наявність товару на складі." });
 
-            await _logger.LogActionAsync($"Транзакція [{type}] продукту ID:{productId}", userId);
+            var emptyStocks = _context.Stocks.Where(s => s.Quantity <= 0);
+            _context.Stocks.RemoveRange(emptyStocks);
+            await _context.SaveChangesAsync();
 
-            return Ok(new { message = "Транзакція успішно проведена" });
+            await _logger.LogActionAsync($"Транзакція [{dto.Type}] ID:{transactionId}", userId);
+
+            return Ok(new { message = "Транзакція успішно проведена", transactionId = transactionId });
         }
 
         [HttpPost("move")]
-        public async Task<IActionResult> MoveStock(int productId, int fromLocationId, int toLocationId, decimal quantity)
+        public async Task<IActionResult> MoveStock([FromBody] StockMoveRequestDto dto)
         {
             var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            int userId = userIdClaim != null ? int.Parse(userIdClaim) : 1;
+            if (userIdClaim == null) return Unauthorized();
+            int userId = int.Parse(userIdClaim);
 
-            var success = await _stockService.MoveStockAsync(productId, fromLocationId, toLocationId, quantity, userId);
+            int transactionId = await _stockService.MoveStockAsync(
+                dto.ProductId,
+                dto.FromLocationId,
+                dto.ToLocationId,
+                dto.Quantity,
+                userId,
+                dto.Description);
 
-            if (!success)
-                return BadRequest(new { message = "Помилка переміщення" });
+            if (transactionId == 0)
+                return BadRequest(new { message = "Помилка переміщення. Перевірте залишки." });
 
-            await _logger.LogActionAsync($"Переміщення продукту ID:{productId} з {fromLocationId} до {toLocationId}", userId);
+            var emptyStocks = _context.Stocks.Where(s => s.Quantity <= 0);
+            _context.Stocks.RemoveRange(emptyStocks);
+            await _context.SaveChangesAsync();
 
-            return Ok(new { message = "Переміщення успішно виконано" });
+            await _logger.LogActionAsync($"Переміщення продукту ID:{dto.ProductId} ID:{transactionId}", userId);
+
+            return Ok(new { message = "Переміщення успішно виконано", transactionId = transactionId });
         }
 
         [HttpPut("{id}")]
@@ -78,10 +95,18 @@ namespace PlumbingAIS.Backend.Controllers
             var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
             int userId = userIdClaim != null ? int.Parse(userIdClaim) : 1;
 
-            _context.Entry(stock).State = EntityState.Modified;
-            await _context.SaveChangesAsync();
+            if (stock.Quantity <= 0)
+            {
+                var existingStock = await _context.Stocks.FindAsync(id);
+                if (existingStock != null) _context.Stocks.Remove(existingStock);
+            }
+            else
+            {
+                _context.Entry(stock).State = EntityState.Modified;
+            }
 
-            await _logger.LogActionAsync($"Ручне оновлення залишку ID:{id}", userId);
+            await _context.SaveChangesAsync();
+            await _logger.LogActionAsync($"Оновлення залишку ID:{id}", userId);
             return NoContent();
         }
     }

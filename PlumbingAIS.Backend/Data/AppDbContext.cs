@@ -19,6 +19,7 @@ namespace PlumbingAIS.Backend.Data
         public DbSet<Contractor> Contractors { get; set; }
         public DbSet<Transaction> Transactions { get; set; }
         public DbSet<ActionLog> ActionLogs { get; set; }
+        public DbSet<TransactionItem> TransactionItems { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

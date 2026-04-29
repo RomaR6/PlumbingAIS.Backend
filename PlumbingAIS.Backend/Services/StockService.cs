@@ -1,82 +1,116 @@
-﻿using PlumbingAIS.Backend.Interfaces;
+﻿using Microsoft.EntityFrameworkCore;
+using PlumbingAIS.Backend.Data;
+using PlumbingAIS.Backend.DTOs;
+using PlumbingAIS.Backend.Interfaces;
 using PlumbingAIS.Backend.Models;
 
 namespace PlumbingAIS.Backend.Services
 {
     public class StockService : IStockService
     {
-        private readonly IGenericRepository<Stock> _stockRepo;
-        private readonly IGenericRepository<Transaction> _transRepo;
+        private readonly AppDbContext _context;
         private readonly IProductRepository _productRepo;
 
-        public StockService(
-            IGenericRepository<Stock> stockRepo,
-            IGenericRepository<Transaction> transRepo,
-            IProductRepository productRepo)
+        public StockService(AppDbContext context, IProductRepository productRepo)
         {
-            _stockRepo = stockRepo;
-            _transRepo = transRepo;
+            _context = context;
             _productRepo = productRepo;
         }
 
-        public async Task<bool> ProcessTransactionAsync(int productId, int locationId, decimal quantity, string type, int userId, int? contractorId = null)
+        public async Task<int> ProcessGroupTransactionAsync(TransactionRequestDto request, int userId)
         {
-            var stocks = await _stockRepo.GetAllAsync();
-            var stock = stocks.FirstOrDefault(s => s.ProductId == productId && s.LocationId == locationId);
-
-            bool isNew = false;
-
-            if (stock == null)
+            using var dbTransaction = await _context.Database.BeginTransactionAsync();
+            try
             {
-                stock = new Stock { ProductId = productId, LocationId = locationId, Quantity = 0 };
-                await _stockRepo.AddAsync(stock);
-                isNew = true;
+                var transaction = new Transaction
+                {
+                    Type = request.Type,
+                    UserId = userId,
+                    ContractorId = request.ContractorId,
+                    Date = DateTime.Now,
+                    Description = request.Description,
+                    DocumentNumber = $"TRX-{Guid.NewGuid().ToString().Substring(0, 8).ToUpper()}"
+                };
+
+                _context.Transactions.Add(transaction);
+                await _context.SaveChangesAsync();
+
+                foreach (var item in request.Items)
+                {
+                    var stock = await _context.Stocks
+                        .FirstOrDefaultAsync(s => s.ProductId == item.ProductId && s.LocationId == item.LocationId);
+
+                    bool isIncoming = request.Type.ToLower().Contains("in");
+                    bool isMoveTo = request.Type.Equals("Move", StringComparison.OrdinalIgnoreCase) && item == request.Items.Last();
+
+                    if (isIncoming || isMoveTo)
+                    {
+                        if (stock == null)
+                        {
+                            stock = new Stock { ProductId = item.ProductId, LocationId = item.LocationId, Quantity = item.Quantity };
+                            _context.Stocks.Add(stock);
+                        }
+                        else
+                        {
+                            stock.Quantity += item.Quantity;
+                        }
+                    }
+                    else
+                    {
+                        if (stock == null || stock.Quantity < item.Quantity)
+                            throw new Exception("Insufficient stock");
+
+                        stock.Quantity -= item.Quantity;
+                    }
+
+                    _context.TransactionItems.Add(new TransactionItem
+                    {
+                        TransactionId = transaction.Id,
+                        ProductId = item.ProductId,
+                        Quantity = item.Quantity,
+                        PriceAtTime = item.Price
+                    });
+                }
+
+                await _context.SaveChangesAsync();
+                await dbTransaction.CommitAsync();
+                return transaction.Id;
             }
-
-            if (type.ToLower().Contains("in"))
+            catch (Exception)
             {
-                stock.Quantity += quantity;
+                await dbTransaction.RollbackAsync();
+                return 0;
             }
-            else if (type.ToLower().Contains("out"))
-            {
-                if (stock.Quantity < quantity) return false;
-                stock.Quantity -= quantity;
-            }
-
-            if (!isNew)
-            {
-                _stockRepo.Update(stock);
-            }
-
-            var transaction = new Transaction
-            {
-                Type = type,
-                UserId = userId,
-                ContractorId = contractorId,
-                Date = DateTime.Now,
-                DocumentNumber = $"TRX-{Guid.NewGuid().ToString().Substring(0, 8)}"
-            };
-
-            await _transRepo.AddAsync(transaction);
-            await _stockRepo.SaveAsync();
-
-            return true;
         }
 
-        public async Task<bool> MoveStockAsync(int productId, int fromLocationId, int toLocationId, decimal quantity, int userId)
+        public async Task<int> MoveStockAsync(int productId, int fromLocationId, int toLocationId, decimal quantity, int userId, string? description = null)
         {
-            var outSuccess = await ProcessTransactionAsync(productId, fromLocationId, quantity, "Move_Out", userId);
-            if (!outSuccess) return false;
+            if (string.IsNullOrEmpty(description))
+            {
+                var fromLoc = await _context.Locations.Include(l => l.Warehouse).FirstOrDefaultAsync(l => l.Id == fromLocationId);
+                var toLoc = await _context.Locations.Include(l => l.Warehouse).FirstOrDefaultAsync(l => l.Id == toLocationId);
 
-            var inSuccess = await ProcessTransactionAsync(productId, toLocationId, quantity, "Move_In", userId);
-            return inSuccess;
+                description = $"Маршрут: {fromLoc?.Warehouse?.Name} ({fromLoc?.RowCode}-{fromLoc?.RackCode}-{fromLoc?.ShelfCode}) → {toLoc?.Warehouse?.Name} ({toLoc?.RowCode}-{toLoc?.RackCode}-{toLoc?.ShelfCode})";
+            }
+
+            var moveRequest = new TransactionRequestDto
+            {
+                Type = "Move",
+                Description = description,
+                Items = new List<TransactionItemRequestDto>
+                {
+                    new TransactionItemRequestDto { ProductId = productId, LocationId = fromLocationId, Quantity = quantity, Price = 0 },
+                    new TransactionItemRequestDto { ProductId = productId, LocationId = toLocationId, Quantity = quantity, Price = 0 }
+                }
+            };
+
+            return await ProcessGroupTransactionAsync(moveRequest, userId);
         }
 
         public async Task<IEnumerable<object>> GetCriticalStocksAsync()
         {
             var products = await _productRepo.GetAllAsync();
-            var stocks = await _stockRepo.GetAllAsync();
-
+            var stocks = await _context.Stocks.ToListAsync();
             return products
                 .Select(p => new {
                     p.Name,
@@ -89,21 +123,8 @@ namespace PlumbingAIS.Backend.Services
 
         public async Task<decimal> GetTotalStockValueAsync()
         {
-            var products = await _productRepo.GetAllAsync();
-            var stocks = await _stockRepo.GetAllAsync();
-
-            decimal totalValue = 0;
-
-            foreach (var stock in stocks)
-            {
-                var product = products.FirstOrDefault(p => p.Id == stock.ProductId);
-                if (product != null)
-                {
-                    totalValue += stock.Quantity * product.Price;
-                }
-            }
-
-            return totalValue;
+            var stocks = await _context.Stocks.Include(s => s.Product).ToListAsync();
+            return stocks.Sum(s => s.Quantity * (s.Product?.Price ?? 0));
         }
     }
 }

@@ -26,7 +26,7 @@ namespace PlumbingAIS.Backend.Controllers
         }
 
         [HttpPost("register")]
-        [AllowAnonymous]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Register(UserRegisterDto dto)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
@@ -34,8 +34,11 @@ namespace PlumbingAIS.Backend.Controllers
             var user = await _authService.RegisterAsync(dto);
             if (user == null) return BadRequest(new { message = "Користувач із таким логіном вже існує" });
 
-            await _logger.LogActionAsync($"Нова реєстрація: {user.Username}", user.Id);
-            return Ok(new { message = "Реєстрація успішна" });
+            var adminIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            int adminId = adminIdStr != null ? int.Parse(adminIdStr) : 0;
+
+            await _logger.LogActionAsync($"Адмін створив акаунт: {user.Username} (Роль: {user.RoleName})", adminId);
+            return Ok(new { message = "Користувача успішно зареєстровано" });
         }
 
         [HttpPost("login")]
@@ -81,7 +84,7 @@ namespace PlumbingAIS.Backend.Controllers
         }
 
         [HttpGet("roles")]
-        [AllowAnonymous]
+        [Authorize(Roles = "Admin")]
         public IActionResult GetAvailableRoles()
         {
             var roles = new[]
