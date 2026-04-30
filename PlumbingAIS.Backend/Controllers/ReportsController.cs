@@ -13,7 +13,7 @@ namespace PlumbingAIS.Backend.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,Manager")]
     public class ReportsController : ControllerBase
     {
         private readonly IStockService _stockService;

@@ -27,7 +27,7 @@ namespace PlumbingAIS.Backend.Controllers
         private int GetUserId()
         {
             var idClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            return idClaim != null ? int.Parse(idClaim) : 1;
+            return idClaim != null ? int.Parse(idClaim) : 0;
         }
 
         [HttpGet]
