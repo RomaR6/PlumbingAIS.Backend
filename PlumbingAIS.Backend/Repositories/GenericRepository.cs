@@ -1,10 +1,11 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using PlumbingAIS.Backend.Data;
 using PlumbingAIS.Backend.Interfaces;
+using PlumbingAIS.Backend.Models;
 
 namespace PlumbingAIS.Backend.Repositories
 {
-    public class GenericRepository<T> : IGenericRepository<T> where T : class
+    public class GenericRepository<T> : IGenericRepository<T> where T : BaseEntity
     {
         protected readonly AppDbContext _context;
         protected readonly DbSet<T> _dbSet;
@@ -12,7 +13,7 @@ namespace PlumbingAIS.Backend.Repositories
         public GenericRepository(AppDbContext context)
         {
             _context = context;
-            _dbSet = context.Set<T>(); 
+            _dbSet = context.Set<T>();
         }
 
         public async Task<IEnumerable<T>> GetAllAsync() => await _dbSet.ToListAsync();

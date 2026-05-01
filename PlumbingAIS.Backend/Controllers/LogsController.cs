@@ -22,12 +22,12 @@ namespace PlumbingAIS.Backend.Controllers
         {
             var logs = await _context.ActionLogs
                 .Include(l => l.User)
-                .OrderByDescending(l => l.Timestamp)
+                .OrderByDescending(l => l.CreatedAt)
                 .Select(l => new
                 {
                     l.Id,
                     l.Action,
-                    l.Timestamp,
+                    Timestamp = l.CreatedAt,
                     Username = l.User != null ? l.User.Username : "Система"
                 })
                 .ToListAsync();

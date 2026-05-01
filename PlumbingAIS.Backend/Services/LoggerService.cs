@@ -13,13 +13,18 @@ namespace PlumbingAIS.Backend.Services
             _context = context;
         }
 
+        public void OnLowStockHandler(object sender, LowStockEventArgs e)
+        {
+            _ = LogActionAsync($"УВАГА: Критичний залишок товару {e.ProductName} (SKU: {e.SKU}). Залишилось: {e.CurrentQuantity}, Поріг: {e.Threshold}", 0);
+        }
+
         public async Task LogActionAsync(string action, int userId)
         {
             var log = new ActionLog
             {
                 Action = action,
-                UserId = userId,
-                Timestamp = DateTime.Now
+                UserId = userId == 0 ? null : userId,
+                CreatedAt = DateTime.Now
             };
 
             _context.ActionLogs.Add(log);

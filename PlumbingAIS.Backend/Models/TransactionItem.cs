@@ -1,8 +1,7 @@
 ﻿namespace PlumbingAIS.Backend.Models
 {
-    public class TransactionItem
+    public class TransactionItem : BaseEntity
     {
-        public int Id { get; set; }
         public int TransactionId { get; set; }
         public int ProductId { get; set; }
         public decimal Quantity { get; set; }

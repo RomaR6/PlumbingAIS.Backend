@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using AutoMapper;
+using Microsoft.AspNetCore.Mvc;
 using PlumbingAIS.Backend.Interfaces;
 using PlumbingAIS.Backend.Data;
 using PlumbingAIS.Backend.Models;
@@ -18,12 +19,14 @@ namespace PlumbingAIS.Backend.Controllers
         private readonly IStockService _stockService;
         private readonly ILoggerService _logger;
         private readonly AppDbContext _context;
+        private readonly IMapper _mapper;
 
-        public StocksController(IStockService stockService, ILoggerService logger, AppDbContext context)
+        public StocksController(IStockService stockService, ILoggerService logger, AppDbContext context, IMapper mapper)
         {
             _stockService = stockService;
             _logger = logger;
             _context = context;
+            _mapper = mapper;
         }
 
         [HttpGet]

@@ -1,10 +1,10 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using AutoMapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PlumbingAIS.Backend.Interfaces;
 using PlumbingAIS.Backend.DTOs;
 using PlumbingAIS.Backend.Models;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 using System.Security.Claims;
 
@@ -17,11 +17,13 @@ namespace PlumbingAIS.Backend.Controllers
     {
         private readonly IProductRepository _repository;
         private readonly ILoggerService _logger;
+        private readonly IMapper _mapper;
 
-        public ProductsController(IProductRepository repository, ILoggerService logger)
+        public ProductsController(IProductRepository repository, ILoggerService logger, IMapper mapper)
         {
             _repository = repository;
             _logger = logger;
+            _mapper = mapper;
         }
 
         private int GetUserId()
@@ -45,20 +47,7 @@ namespace PlumbingAIS.Backend.Controllers
             if (!string.IsNullOrEmpty(search))
                 query = query.Where(p => p.Name.Contains(search, System.StringComparison.OrdinalIgnoreCase) || p.SKU.Contains(search, System.StringComparison.OrdinalIgnoreCase));
 
-            var result = query.Select(p => new ProductReadDto
-            {
-                Id = p.Id,
-                SKU = p.SKU,
-                Name = p.Name,
-                Price = p.Price,
-                Material = p.Material,
-                Diameter = p.Diameter,
-                ThreadType = p.ThreadType,
-                CategoryName = p.Category != null ? p.Category.Name : "Не вказано",
-                BrandName = p.Brand != null ? p.Brand.Name : "Не вказано",
-                UnitName = p.Unit != null ? p.Unit.Name : "Не вказано"
-            }).ToList();
-
+            var result = _mapper.Map<IEnumerable<ProductReadDto>>(query);
             return Ok(result);
         }
 
@@ -68,36 +57,35 @@ namespace PlumbingAIS.Backend.Controllers
             var p = await _repository.GetByIdAsync(id);
             if (p == null) return NotFound();
 
-            return Ok(new ProductReadDto
-            {
-                Id = p.Id,
-                SKU = p.SKU,
-                Name = p.Name,
-                Price = p.Price,
-                CategoryName = p.Category != null ? p.Category.Name : "Не вказано"
-            });
+            return Ok(_mapper.Map<ProductReadDto>(p));
         }
 
         [HttpPost]
         [Authorize(Roles = "Admin,Manager")]
-        public async Task<ActionResult<Product>> CreateProduct(Product product)
+        public async Task<ActionResult<ProductReadDto>> CreateProduct(ProductCreateDto dto)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
 
+            var product = _mapper.Map<Product>(dto);
             var created = await _repository.AddAsync(product);
+
             await _logger.LogActionAsync($"Створення товару: {product.Name} (SKU: {product.SKU})", GetUserId());
 
-            return CreatedAtAction(nameof(GetProduct), new { id = created.Id }, created);
+            return CreatedAtAction(nameof(GetProduct), new { id = created.Id }, _mapper.Map<ProductReadDto>(created));
         }
 
         [HttpPut("{id}")]
         [Authorize(Roles = "Admin,Manager")]
-        public async Task<IActionResult> UpdateProduct(int id, Product product)
+        public async Task<IActionResult> UpdateProduct(int id, ProductCreateDto dto)
         {
-            if (id != product.Id) return BadRequest();
+            var existingProduct = await _repository.GetByIdAsync(id);
+            if (existingProduct == null) return NotFound();
 
-            await _repository.UpdateAsync(product);
-            await _logger.LogActionAsync($"Оновлення товару: {product.Name}", GetUserId());
+            _mapper.Map(dto, existingProduct);
+            existingProduct.Id = id;
+
+            await _repository.UpdateAsync(existingProduct);
+            await _logger.LogActionAsync($"Оновлення товару: {existingProduct.Name}", GetUserId());
 
             return NoContent();
         }

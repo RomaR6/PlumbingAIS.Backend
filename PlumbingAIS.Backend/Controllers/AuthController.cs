@@ -1,4 +1,4 @@
-﻿using System;
+﻿using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -18,12 +18,14 @@ namespace PlumbingAIS.Backend.Controllers
         private readonly IAuthService _authService;
         private readonly AppDbContext _context;
         private readonly ILoggerService _logger;
+        private readonly IMapper _mapper;
 
-        public AuthController(IAuthService authService, AppDbContext context, ILoggerService logger)
+        public AuthController(IAuthService authService, AppDbContext context, ILoggerService logger, IMapper mapper)
         {
             _authService = authService;
             _context = context;
             _logger = logger;
+            _mapper = mapper;
         }
 
         [HttpPost("register")]
@@ -51,7 +53,10 @@ namespace PlumbingAIS.Backend.Controllers
             var token = await _authService.LoginAsync(dto);
             if (token == null) return Unauthorized(new { message = "Невірний логін або пароль" });
 
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == dto.Username);
+            var user = await _context.Users
+                .Include(u => u.Role)
+                .FirstOrDefaultAsync(u => u.Username == dto.Username);
+
             if (user != null)
             {
                 await _logger.LogActionAsync("Вхід у систему", user.Id);
@@ -62,7 +67,7 @@ namespace PlumbingAIS.Backend.Controllers
 
         [HttpGet("profile")]
         [Authorize]
-        public async Task<IActionResult> GetProfile()
+        public async Task<ActionResult<UserReadDto>> GetProfile()
         {
             var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (userIdStr == null) return Unauthorized();
@@ -73,15 +78,7 @@ namespace PlumbingAIS.Backend.Controllers
 
             if (user == null) return NotFound();
 
-            return Ok(new
-            {
-                user.Id,
-                user.Username,
-                user.FirstName,
-                user.LastName,
-                user.CreatedAt,
-                Role = user.RoleName
-            });
+            return Ok(_mapper.Map<UserReadDto>(user));
         }
 
         [HttpGet("roles")]

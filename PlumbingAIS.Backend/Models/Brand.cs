@@ -1,4 +1,4 @@
 ﻿namespace PlumbingAIS.Backend.Models
 {
-    public class Brand : BaseEntity { } 
+    public class Brand : DictionaryEntity { }
 }

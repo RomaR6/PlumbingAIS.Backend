@@ -50,6 +50,7 @@ namespace PlumbingAIS.Backend.Services
         public async Task<string?> LoginAsync(UserLoginDto dto)
         {
             var hashedPassword = HashPassword(dto.Password);
+
             var user = await _context.Users
                 .Include(u => u.Role)
                 .FirstOrDefaultAsync(u => u.Username == dto.Username && u.PasswordHash == hashedPassword);
@@ -77,7 +78,13 @@ namespace PlumbingAIS.Backend.Services
                 new Claim(ClaimTypes.Surname, user.LastName ?? "")
             };
 
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration.GetSection("AppSettings:Token").Value!));
+            var tokenKey = _configuration.GetSection("AppSettings:Token").Value;
+            if (string.IsNullOrEmpty(tokenKey))
+            {
+                throw new Exception("JWT Token key is missing in appsettings.json!");
+            }
+
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(tokenKey));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha512Signature);
 
             var token = new JwtSecurityToken(

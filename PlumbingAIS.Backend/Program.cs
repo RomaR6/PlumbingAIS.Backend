@@ -3,11 +3,12 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using PlumbingAIS.Backend.Data;
+using PlumbingAIS.Backend.Helpers;
 using PlumbingAIS.Backend.Interfaces;
+using PlumbingAIS.Backend.Middleware;
 using PlumbingAIS.Backend.Models;
 using PlumbingAIS.Backend.Repositories;
 using PlumbingAIS.Backend.Services;
-using PlumbingAIS.Backend.Middleware;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -36,6 +37,7 @@ builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepositor
 builder.Services.AddScoped<IStockService, StockService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IInvoiceService, InvoiceService>();
+builder.Services.AddAutoMapper(typeof(MappingProfile));
 builder.Services.AddScoped<ILoggerService, LoggerService>();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -64,6 +66,14 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+using (var scope = app.Services.CreateScope())
+{
+    var stockService = scope.ServiceProvider.GetRequiredService<IStockService>();
+    var loggerService = scope.ServiceProvider.GetRequiredService<ILoggerService>();
+
+    stockService.OnLowStockReached += loggerService.OnLowStockHandler;
+}
+
 app.UseMiddleware<ExceptionMiddleware>();
 
 if (app.Environment.IsDevelopment())
@@ -80,4 +90,4 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-app.Run();  
+app.Run();

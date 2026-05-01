@@ -33,7 +33,7 @@ namespace PlumbingAIS.Backend.Migrations
                     b.Property<string>("Action")
                         .HasColumnType("longtext");
 
-                    b.Property<DateTime>("Timestamp")
+                    b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
 
                     b.Property<int?>("UserId")
@@ -54,6 +54,9 @@ namespace PlumbingAIS.Backend.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -62,6 +65,80 @@ namespace PlumbingAIS.Backend.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Brands");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            CreatedAt = new DateTime(2026, 5, 2, 0, 0, 25, 50, DateTimeKind.Local).AddTicks(4627),
+                            Name = "EcoPlast"
+                        },
+                        new
+                        {
+                            Id = 2,
+                            CreatedAt = new DateTime(2026, 5, 2, 0, 0, 25, 50, DateTimeKind.Local).AddTicks(4632),
+                            Name = "Grohe"
+                        },
+                        new
+                        {
+                            Id = 3,
+                            CreatedAt = new DateTime(2026, 5, 2, 0, 0, 25, 50, DateTimeKind.Local).AddTicks(4634),
+                            Name = "Wavin"
+                        },
+                        new
+                        {
+                            Id = 4,
+                            CreatedAt = new DateTime(2026, 5, 2, 0, 0, 25, 50, DateTimeKind.Local).AddTicks(4636),
+                            Name = "Kisan"
+                        },
+                        new
+                        {
+                            Id = 5,
+                            CreatedAt = new DateTime(2026, 5, 2, 0, 0, 25, 50, DateTimeKind.Local).AddTicks(4638),
+                            Name = "Hansa"
+                        },
+                        new
+                        {
+                            Id = 6,
+                            CreatedAt = new DateTime(2026, 5, 2, 0, 0, 25, 50, DateTimeKind.Local).AddTicks(4640),
+                            Name = "Valtec"
+                        },
+                        new
+                        {
+                            Id = 7,
+                            CreatedAt = new DateTime(2026, 5, 2, 0, 0, 25, 50, DateTimeKind.Local).AddTicks(4642),
+                            Name = "Geberit"
+                        },
+                        new
+                        {
+                            Id = 8,
+                            CreatedAt = new DateTime(2026, 5, 2, 0, 0, 25, 50, DateTimeKind.Local).AddTicks(4643),
+                            Name = "Kolo"
+                        },
+                        new
+                        {
+                            Id = 9,
+                            CreatedAt = new DateTime(2026, 5, 2, 0, 0, 25, 50, DateTimeKind.Local).AddTicks(4645),
+                            Name = "Cersanit"
+                        },
+                        new
+                        {
+                            Id = 10,
+                            CreatedAt = new DateTime(2026, 5, 2, 0, 0, 25, 50, DateTimeKind.Local).AddTicks(4647),
+                            Name = "Imprese"
+                        },
+                        new
+                        {
+                            Id = 11,
+                            CreatedAt = new DateTime(2026, 5, 2, 0, 0, 25, 50, DateTimeKind.Local).AddTicks(4649),
+                            Name = "Villeroy & Boch"
+                        },
+                        new
+                        {
+                            Id = 12,
+                            CreatedAt = new DateTime(2026, 5, 2, 0, 0, 25, 50, DateTimeKind.Local).AddTicks(4651),
+                            Name = "Franke"
+                        });
                 });
 
             modelBuilder.Entity("PlumbingAIS.Backend.Models.Category", b =>
@@ -71,6 +148,9 @@ namespace PlumbingAIS.Backend.Migrations
                         .HasColumnType("int");
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -85,22 +165,56 @@ namespace PlumbingAIS.Backend.Migrations
                         new
                         {
                             Id = 1,
+                            CreatedAt = new DateTime(2026, 5, 2, 0, 0, 25, 50, DateTimeKind.Local).AddTicks(4290),
                             Name = "Труби"
                         },
                         new
                         {
                             Id = 2,
+                            CreatedAt = new DateTime(2026, 5, 2, 0, 0, 25, 50, DateTimeKind.Local).AddTicks(4302),
                             Name = "Фітинги"
                         },
                         new
                         {
                             Id = 3,
+                            CreatedAt = new DateTime(2026, 5, 2, 0, 0, 25, 50, DateTimeKind.Local).AddTicks(4305),
                             Name = "Змішувачі"
                         },
                         new
                         {
                             Id = 4,
+                            CreatedAt = new DateTime(2026, 5, 2, 0, 0, 25, 50, DateTimeKind.Local).AddTicks(4307),
                             Name = "Кераміка"
+                        },
+                        new
+                        {
+                            Id = 5,
+                            CreatedAt = new DateTime(2026, 5, 2, 0, 0, 25, 50, DateTimeKind.Local).AddTicks(4309),
+                            Name = "Змішувачі для кухні"
+                        },
+                        new
+                        {
+                            Id = 6,
+                            CreatedAt = new DateTime(2026, 5, 2, 0, 0, 25, 50, DateTimeKind.Local).AddTicks(4311),
+                            Name = "Душові системи"
+                        },
+                        new
+                        {
+                            Id = 7,
+                            CreatedAt = new DateTime(2026, 5, 2, 0, 0, 25, 50, DateTimeKind.Local).AddTicks(4313),
+                            Name = "Інсталяції"
+                        },
+                        new
+                        {
+                            Id = 8,
+                            CreatedAt = new DateTime(2026, 5, 2, 0, 0, 25, 50, DateTimeKind.Local).AddTicks(4315),
+                            Name = "Рушникосушки"
+                        },
+                        new
+                        {
+                            Id = 9,
+                            CreatedAt = new DateTime(2026, 5, 2, 0, 0, 25, 50, DateTimeKind.Local).AddTicks(4317),
+                            Name = "Запірна арматура"
                         });
                 });
 
@@ -114,6 +228,9 @@ namespace PlumbingAIS.Backend.Migrations
 
                     b.Property<string>("ContactInfo")
                         .HasColumnType("longtext");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -136,6 +253,9 @@ namespace PlumbingAIS.Backend.Migrations
                         .HasColumnType("int");
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -177,6 +297,9 @@ namespace PlumbingAIS.Backend.Migrations
 
                     b.Property<int?>("CategoryId")
                         .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("Diameter")
                         .HasColumnType("longtext");
@@ -224,6 +347,9 @@ namespace PlumbingAIS.Backend.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -237,16 +363,19 @@ namespace PlumbingAIS.Backend.Migrations
                         new
                         {
                             Id = 1,
+                            CreatedAt = new DateTime(2026, 5, 2, 0, 0, 25, 49, DateTimeKind.Local).AddTicks(8724),
                             Name = "Admin"
                         },
                         new
                         {
                             Id = 2,
+                            CreatedAt = new DateTime(2026, 5, 2, 0, 0, 25, 49, DateTimeKind.Local).AddTicks(9302),
                             Name = "User"
                         },
                         new
                         {
                             Id = 3,
+                            CreatedAt = new DateTime(2026, 5, 2, 0, 0, 25, 49, DateTimeKind.Local).AddTicks(9309),
                             Name = "Manager"
                         });
                 });
@@ -291,6 +420,9 @@ namespace PlumbingAIS.Backend.Migrations
                     b.Property<DateTime>("Date")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<string>("Description")
+                        .HasColumnType("longtext");
+
                     b.Property<string>("DocumentNumber")
                         .IsRequired()
                         .HasColumnType("longtext");
@@ -311,6 +443,35 @@ namespace PlumbingAIS.Backend.Migrations
                     b.ToTable("Transactions");
                 });
 
+            modelBuilder.Entity("PlumbingAIS.Backend.Models.TransactionItem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("PriceAtTime")
+                        .HasColumnType("decimal(65,30)");
+
+                    b.Property<int>("ProductId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("decimal(65,30)");
+
+                    b.Property<int>("TransactionId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("TransactionId");
+
+                    b.ToTable("TransactionItems");
+                });
+
             modelBuilder.Entity("PlumbingAIS.Backend.Models.Unit", b =>
                 {
                     b.Property<int>("Id")
@@ -318,6 +479,9 @@ namespace PlumbingAIS.Backend.Migrations
                         .HasColumnType("int");
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -332,16 +496,19 @@ namespace PlumbingAIS.Backend.Migrations
                         new
                         {
                             Id = 1,
+                            CreatedAt = new DateTime(2026, 5, 2, 0, 0, 25, 50, DateTimeKind.Local).AddTicks(4896),
                             Name = "шт"
                         },
                         new
                         {
                             Id = 2,
+                            CreatedAt = new DateTime(2026, 5, 2, 0, 0, 25, 50, DateTimeKind.Local).AddTicks(4901),
                             Name = "м"
                         },
                         new
                         {
                             Id = 3,
+                            CreatedAt = new DateTime(2026, 5, 2, 0, 0, 25, 50, DateTimeKind.Local).AddTicks(4903),
                             Name = "комплект"
                         });
                 });
@@ -388,6 +555,9 @@ namespace PlumbingAIS.Backend.Migrations
                         .HasColumnType("int");
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -476,6 +646,25 @@ namespace PlumbingAIS.Backend.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("PlumbingAIS.Backend.Models.TransactionItem", b =>
+                {
+                    b.HasOne("PlumbingAIS.Backend.Models.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("PlumbingAIS.Backend.Models.Transaction", "Transaction")
+                        .WithMany("TransactionItems")
+                        .HasForeignKey("TransactionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Product");
+
+                    b.Navigation("Transaction");
+                });
+
             modelBuilder.Entity("PlumbingAIS.Backend.Models.User", b =>
                 {
                     b.HasOne("PlumbingAIS.Backend.Models.Role", "Role")
@@ -485,6 +674,11 @@ namespace PlumbingAIS.Backend.Migrations
                         .IsRequired();
 
                     b.Navigation("Role");
+                });
+
+            modelBuilder.Entity("PlumbingAIS.Backend.Models.Transaction", b =>
+                {
+                    b.Navigation("TransactionItems");
                 });
 #pragma warning restore 612, 618
         }

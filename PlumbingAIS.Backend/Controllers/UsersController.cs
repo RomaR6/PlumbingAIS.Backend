@@ -1,9 +1,11 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using AutoMapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PlumbingAIS.Backend.Data;
 using PlumbingAIS.Backend.Interfaces;
 using PlumbingAIS.Backend.Models;
+using PlumbingAIS.Backend.DTOs;
 using System.Security.Claims;
 
 namespace PlumbingAIS.Backend.Controllers
@@ -16,29 +18,23 @@ namespace PlumbingAIS.Backend.Controllers
         private readonly IGenericRepository<User> _userRepo;
         private readonly AppDbContext _context;
         private readonly ILoggerService _logger;
+        private readonly IMapper _mapper;
 
-        public UsersController(IGenericRepository<User> userRepo, AppDbContext context, ILoggerService logger)
+        public UsersController(IGenericRepository<User> userRepo, AppDbContext context, ILoggerService logger, IMapper mapper)
         {
             _userRepo = userRepo;
             _context = context;
             _logger = logger;
+            _mapper = mapper;
         }
 
         private int GetUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
         [HttpGet]
-        public async Task<IActionResult> GetEmployees()
+        public async Task<ActionResult<IEnumerable<UserReadDto>>> GetEmployees()
         {
             var users = await _context.Users.Include(u => u.Role).ToListAsync();
-            return Ok(users.Select(u => new
-            {
-                u.Id,
-                u.Username,
-                u.FirstName,
-                u.LastName,
-                u.CreatedAt,
-                Role = u.Role?.Name ?? "User"
-            }));
+            return Ok(_mapper.Map<IEnumerable<UserReadDto>>(users));
         }
 
         [HttpPut("{id}/role")]
@@ -50,7 +46,7 @@ namespace PlumbingAIS.Backend.Controllers
             var role = await _context.Roles.FirstOrDefaultAsync(r => r.Name == dto.Role);
             if (role == null) return BadRequest(new { message = "Такої ролі не існує" });
 
-            var oldRole = user.Role?.Name ?? "User";
+            var oldRole = user.RoleName;
             user.RoleId = role.Id;
 
             _context.Users.Update(user);

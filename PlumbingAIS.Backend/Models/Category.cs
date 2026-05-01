@@ -1,6 +1,4 @@
-﻿
-namespace PlumbingAIS.Backend.Models
+﻿namespace PlumbingAIS.Backend.Models
 {
-    
-    public class Category : BaseEntity { }
+    public class Category : DictionaryEntity { }
 }

@@ -1,4 +1,4 @@
 ﻿namespace PlumbingAIS.Backend.Models
 {
-    public class Unit : BaseEntity { }
+    public class Unit : DictionaryEntity { }
 }

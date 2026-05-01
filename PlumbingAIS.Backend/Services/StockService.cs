@@ -11,6 +11,8 @@ namespace PlumbingAIS.Backend.Services
         private readonly AppDbContext _context;
         private readonly IProductRepository _productRepo;
 
+        public event LowStockHandler OnLowStockReached;
+
         public StockService(AppDbContext context, IProductRepository productRepo)
         {
             _context = context;
@@ -38,6 +40,7 @@ namespace PlumbingAIS.Backend.Services
                 foreach (var item in request.Items)
                 {
                     var stock = await _context.Stocks
+                        .Include(s => s.Product)
                         .FirstOrDefaultAsync(s => s.ProductId == item.ProductId && s.LocationId == item.LocationId);
 
                     bool isIncoming = request.Type.ToLower().Contains("in");
@@ -47,12 +50,13 @@ namespace PlumbingAIS.Backend.Services
                     {
                         if (stock == null)
                         {
-                            stock = new Stock { ProductId = item.ProductId, LocationId = item.LocationId, Quantity = item.Quantity };
+                            stock = new Stock { ProductId = item.ProductId, LocationId = item.LocationId };
+                            stock.AddQuantity(item.Quantity);
                             _context.Stocks.Add(stock);
                         }
                         else
                         {
-                            stock.Quantity += item.Quantity;
+                            stock.AddQuantity(item.Quantity);
                         }
                     }
                     else
@@ -60,7 +64,9 @@ namespace PlumbingAIS.Backend.Services
                         if (stock == null || stock.Quantity < item.Quantity)
                             throw new Exception("Insufficient stock");
 
-                        stock.Quantity -= item.Quantity;
+                        stock.RemoveQuantity(item.Quantity);
+
+                        await CheckAndNotifyLowStock(item.ProductId);
                     }
 
                     _context.TransactionItems.Add(new TransactionItem
@@ -80,6 +86,27 @@ namespace PlumbingAIS.Backend.Services
             {
                 await dbTransaction.RollbackAsync();
                 return 0;
+            }
+        }
+
+        private async Task CheckAndNotifyLowStock(int productId)
+        {
+            var product = await _context.Products.FindAsync(productId);
+            if (product == null) return;
+
+            var totalQuantity = await _context.Stocks
+                .Where(s => s.ProductId == productId)
+                .SumAsync(s => s.Quantity);
+
+            if (totalQuantity < product.MinThreshold)
+            {
+                OnLowStockReached?.Invoke(this, new LowStockEventArgs
+                {
+                    ProductName = product.Name,
+                    SKU = product.SKU,
+                    CurrentQuantity = totalQuantity,
+                    Threshold = product.MinThreshold
+                });
             }
         }
 

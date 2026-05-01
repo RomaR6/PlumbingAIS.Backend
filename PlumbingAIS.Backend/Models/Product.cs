@@ -1,6 +1,6 @@
 ﻿namespace PlumbingAIS.Backend.Models
 {
-    public class Product : BaseEntity
+    public class Product : DictionaryEntity
     {
         public int? CategoryId { get; set; }
         public int? BrandId { get; set; }
@@ -11,7 +11,6 @@
         public string? Material { get; set; }
         public string? Diameter { get; set; }
         public string? ThreadType { get; set; }
-
         public Category? Category { get; set; }
         public Brand? Brand { get; set; }
         public Unit? Unit { get; set; }
