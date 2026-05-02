@@ -1,8 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using PlumbingAIS.Backend.Data;
 using PlumbingAIS.Backend.Interfaces;
+using PlumbingAIS.Backend.DTOs;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
@@ -17,13 +16,13 @@ namespace PlumbingAIS.Backend.Controllers
     public class ReportsController : ControllerBase
     {
         private readonly IStockService _stockService;
-        private readonly AppDbContext _context;
+        private readonly IUnitOfWork _unitOfWork;
         private readonly ILoggerService _logger;
 
-        public ReportsController(IStockService stockService, AppDbContext context, ILoggerService logger)
+        public ReportsController(IStockService stockService, IUnitOfWork unitOfWork, ILoggerService logger)
         {
             _stockService = stockService;
-            _context = context;
+            _unitOfWork = unitOfWork;
             _logger = logger;
             QuestPDF.Settings.License = LicenseType.Community;
         }
@@ -31,67 +30,54 @@ namespace PlumbingAIS.Backend.Controllers
         private int GetUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
         [HttpGet("total-value")]
-        public async Task<IActionResult> GetTotalValue() => Ok(new { totalValue = await _stockService.GetTotalStockValueAsync(), currency = "UAH" });
+        public async Task<IActionResult> GetTotalValue() =>
+            Ok(new { totalValue = await _stockService.GetTotalStockValueAsync(), currency = "UAH" });
 
         [HttpGet("inventory-check")]
         public async Task<IActionResult> GetInventoryReport()
         {
-            var critical = await _context.Products
-                .Where(p => _context.Stocks.Any(s => s.ProductId == p.Id))
-                .Select(p => new
-                {
-                    p.Id,
-                    p.Name,
-                    p.SKU,
-                    p.MinThreshold,
-                    Quantity = _context.Stocks.Where(s => s.ProductId == p.Id).Sum(s => (int?)s.Quantity) ?? 0
-                })
-                .Where(x => x.Quantity < x.MinThreshold)
-                .ToListAsync();
+            var critical = await _stockService.GetCriticalStocksAsync();
+            var products = await _unitOfWork.Products.GetAllAsync();
 
-            return Ok(new { reportDate = DateTime.Now, criticalItemsCount = critical.Count, items = critical });
+            var result = critical.Select(i => {
+                var product = products.FirstOrDefault(p => p.SKU.Trim().ToLower() == i.SKU.Trim().ToLower());
+                return new
+                {
+                    productId = product?.Id,
+                    id = product?.Id,
+                    name = i.Name,
+                    sku = i.SKU,
+                    minThreshold = i.MinThreshold,
+                    quantity = i.CurrentQuantity,
+                    currentQuantity = i.CurrentQuantity
+                };
+            });
+
+            return Ok(new { reportDate = DateTime.Now, items = result });
         }
 
         [HttpGet("export-csv")]
         public async Task<IActionResult> ExportCsv()
         {
-            var items = await _context.Products
-                .Where(p => _context.Stocks.Any(s => s.ProductId == p.Id))
-                .Select(p => new
-                {
-                    p.SKU,
-                    p.Name,
-                    p.MinThreshold,
-                    Quantity = _context.Stocks.Where(s => s.ProductId == p.Id).Sum(s => (int?)s.Quantity) ?? 0
-                })
-                .ToListAsync();
-
+            var items = await _stockService.GetCriticalStocksAsync();
             var csv = new StringBuilder();
             csv.AppendLine("Артикул;Назва товару;Залишок;Поріг;Статус");
 
             foreach (var item in items)
             {
-                string status = item.Quantity < item.MinThreshold ? "ДЕФІЦИТ" : "В НАЯВНОСТІ";
-                csv.AppendLine($"{item.SKU};{item.Name};{item.Quantity};{item.MinThreshold};{status}");
+                string status = item.CurrentQuantity < item.MinThreshold ? "ДЕФІЦИТ" : "ОК";
+                csv.AppendLine($"{item.SKU};{item.Name};{item.CurrentQuantity};{item.MinThreshold};{status}");
             }
 
             await _logger.LogActionAsync("Експорт звіту інвентаризації (CSV)", GetUserId());
-            return File(Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csv.ToString())).ToArray(), "text/csv", $"inventory_{DateTime.Now:yyyyMMdd}.csv");
+            return File(Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csv.ToString())).ToArray(),
+                "text/csv", $"inventory_{DateTime.Now:yyyyMMdd}.csv");
         }
 
         [HttpGet("export-pdf")]
         public async Task<IActionResult> ExportPdf()
         {
-            var items = await _context.Products
-                .Where(p => _context.Stocks.Any(s => s.ProductId == p.Id))
-                .Select(p => new
-                {
-                    p.SKU,
-                    p.Name,
-                    p.MinThreshold,
-                    Quantity = _context.Stocks.Where(s => s.ProductId == p.Id).Sum(s => (int?)s.Quantity) ?? 0
-                })
-                .ToListAsync();
+            var items = await _stockService.GetCriticalStocksAsync();
 
             var document = Document.Create(container => {
                 container.Page(page => {
@@ -118,10 +104,10 @@ namespace PlumbingAIS.Backend.Controllers
 
                         foreach (var i in items)
                         {
-                            bool isLow = i.Quantity < i.MinThreshold;
+                            bool isLow = i.CurrentQuantity < i.MinThreshold;
                             table.Cell().Text(i.SKU);
                             table.Cell().Text(i.Name);
-                            table.Cell().Text(i.Quantity.ToString());
+                            table.Cell().Text(i.CurrentQuantity.ToString());
                             table.Cell().Text(i.MinThreshold.ToString());
                             table.Cell().Text(isLow ? "ДЕФІЦИТ" : "ОК")
                                 .FontColor(isLow ? Colors.Red.Medium : Colors.Green.Medium).Bold();

@@ -4,8 +4,6 @@ using Microsoft.AspNetCore.Mvc;
 using PlumbingAIS.Backend.Interfaces;
 using PlumbingAIS.Backend.DTOs;
 using PlumbingAIS.Backend.Models;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 using System.Security.Claims;
 
 namespace PlumbingAIS.Backend.Controllers
@@ -15,78 +13,91 @@ namespace PlumbingAIS.Backend.Controllers
     [Authorize]
     public class ProductsController : ControllerBase
     {
-        private readonly IProductRepository _repository;
+        private readonly IUnitOfWork _unitOfWork;
         private readonly ILoggerService _logger;
         private readonly IMapper _mapper;
 
-        public ProductsController(IProductRepository repository, ILoggerService logger, IMapper mapper)
+        public ProductsController(IUnitOfWork unitOfWork, ILoggerService logger, IMapper mapper)
         {
-            _repository = repository;
+            _unitOfWork = unitOfWork;
             _logger = logger;
             _mapper = mapper;
         }
 
-        private int GetUserId()
-        {
-            var idClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            return idClaim != null ? int.Parse(idClaim) : 0;
-        }
+        private int GetUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "0");
 
         [HttpGet]
         public async Task<ActionResult<IEnumerable<ProductReadDto>>> GetProducts([FromQuery] string? category, [FromQuery] string? material, [FromQuery] string? search)
         {
-            var products = await _repository.GetAllAsync();
+            
+            var products = await _unitOfWork.Products.GetAllAsync(
+                p => p.Category,
+                p => p.Brand,
+                p => p.Unit
+            );
+
             var query = products.AsQueryable();
 
             if (!string.IsNullOrEmpty(category))
-                query = query.Where(p => p.Category != null && p.Category.Name.Contains(category, System.StringComparison.OrdinalIgnoreCase));
+            {
+                query = query.Where(p => p.Category != null && p.Category.Name.Contains(category, StringComparison.OrdinalIgnoreCase));
+            }
 
             if (!string.IsNullOrEmpty(material))
-                query = query.Where(p => p.Material != null && p.Material.Contains(material, System.StringComparison.OrdinalIgnoreCase));
+            {
+                query = query.Where(p => p.Material != null && p.Material.Contains(material, StringComparison.OrdinalIgnoreCase));
+            }
 
             if (!string.IsNullOrEmpty(search))
-                query = query.Where(p => p.Name.Contains(search, System.StringComparison.OrdinalIgnoreCase) || p.SKU.Contains(search, System.StringComparison.OrdinalIgnoreCase));
+            {
+                query = query.Where(p => p.Name.Contains(search, StringComparison.OrdinalIgnoreCase) || p.SKU.Contains(search, StringComparison.OrdinalIgnoreCase));
+            }
 
-            var result = _mapper.Map<IEnumerable<ProductReadDto>>(query);
-            return Ok(result);
+            return Ok(_mapper.Map<IEnumerable<ProductReadDto>>(query));
         }
 
         [HttpGet("{id}")]
         public async Task<ActionResult<ProductReadDto>> GetProduct(int id)
         {
-            var p = await _repository.GetByIdAsync(id);
-            if (p == null) return NotFound();
+            
+            var products = await _unitOfWork.Products.GetAllAsync(p => p.Category, p => p.Brand, p => p.Unit);
+            var product = products.FirstOrDefault(p => p.Id == id);
 
-            return Ok(_mapper.Map<ProductReadDto>(p));
+            if (product == null) return NotFound();
+
+            return Ok(_mapper.Map<ProductReadDto>(product));
         }
 
         [HttpPost]
         [Authorize(Roles = "Admin,Manager")]
         public async Task<ActionResult<ProductReadDto>> CreateProduct(ProductCreateDto dto)
         {
-            if (!ModelState.IsValid) return BadRequest(ModelState);
-
             var product = _mapper.Map<Product>(dto);
-            var created = await _repository.AddAsync(product);
 
-            await _logger.LogActionAsync($"Створення товару: {product.Name} (SKU: {product.SKU})", GetUserId());
+            await _unitOfWork.Products.AddAsync(product);
+            await _unitOfWork.CompleteAsync();
 
-            return CreatedAtAction(nameof(GetProduct), new { id = created.Id }, _mapper.Map<ProductReadDto>(created));
+            
+            var createdProduct = (await _unitOfWork.Products.GetAllAsync(p => p.Category, p => p.Brand, p => p.Unit))
+                                 .FirstOrDefault(p => p.Id == product.Id);
+
+            await _logger.LogActionAsync($"Створення товару: {product.Name}", GetUserId());
+
+            return CreatedAtAction(nameof(GetProduct), new { id = product.Id }, _mapper.Map<ProductReadDto>(createdProduct));
         }
 
         [HttpPut("{id}")]
         [Authorize(Roles = "Admin,Manager")]
         public async Task<IActionResult> UpdateProduct(int id, ProductCreateDto dto)
         {
-            var existingProduct = await _repository.GetByIdAsync(id);
+            var existingProduct = await _unitOfWork.Products.GetByIdAsync(id);
             if (existingProduct == null) return NotFound();
 
             _mapper.Map(dto, existingProduct);
-            existingProduct.Id = id;
+            _unitOfWork.Products.Update(existingProduct);
+            await _unitOfWork.CompleteAsync();
 
-            await _repository.UpdateAsync(existingProduct);
-            await _logger.LogActionAsync($"Оновлення товару: {existingProduct.Name}", GetUserId());
-
+            await _logger.LogActionAsync($"Оновлення товару ID:{id}", GetUserId());
             return NoContent();
         }
 
@@ -94,13 +105,13 @@ namespace PlumbingAIS.Backend.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteProduct(int id)
         {
-            var product = await _repository.GetByIdAsync(id);
+            var product = await _unitOfWork.Products.GetByIdAsync(id);
             if (product == null) return NotFound();
 
-            string info = $"{product.Name} (SKU: {product.SKU})";
-            await _repository.DeleteAsync(id);
-            await _logger.LogActionAsync($"Видалення товару: {info}", GetUserId());
+            _unitOfWork.Products.Delete(product);
+            await _unitOfWork.CompleteAsync();
 
+            await _logger.LogActionAsync($"Видалення товару ID:{id}", GetUserId());
             return NoContent();
         }
     }

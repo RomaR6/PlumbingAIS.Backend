@@ -2,6 +2,7 @@
 using PlumbingAIS.Backend.Data;
 using PlumbingAIS.Backend.Interfaces;
 using PlumbingAIS.Backend.Models;
+using System.Linq.Expressions;
 
 namespace PlumbingAIS.Backend.Repositories
 {
@@ -16,7 +17,15 @@ namespace PlumbingAIS.Backend.Repositories
             _dbSet = context.Set<T>();
         }
 
-        public async Task<IEnumerable<T>> GetAllAsync() => await _dbSet.ToListAsync();
+        public async Task<IEnumerable<T>> GetAllAsync(params Expression<Func<T, object>>[] includes)
+        {
+            IQueryable<T> query = _dbSet;
+            foreach (var include in includes)
+            {
+                query = query.Include(include);
+            }
+            return await query.ToListAsync();
+        }
 
         public async Task<T?> GetByIdAsync(int id) => await _dbSet.FindAsync(id);
 

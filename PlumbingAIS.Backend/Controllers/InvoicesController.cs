@@ -21,9 +21,6 @@ namespace PlumbingAIS.Backend.Controllers
         {
             var pdfBytes = await _invoiceService.GenerateInvoicePdfAsync(transactionId);
 
-            if (pdfBytes == null)
-                return NotFound(new { message = "Накладну не знайдено" });
-
             return File(pdfBytes, "application/pdf", $"invoice_{transactionId}.pdf");
         }
     }

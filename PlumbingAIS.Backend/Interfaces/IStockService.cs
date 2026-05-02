@@ -7,9 +7,9 @@ namespace PlumbingAIS.Backend.Interfaces
 
     public interface IStockService
     {
-        event LowStockHandler OnLowStockReached;
+        event LowStockHandler? OnLowStockReached;
         Task<int> ProcessGroupTransactionAsync(TransactionRequestDto request, int userId);
-        Task<IEnumerable<object>> GetCriticalStocksAsync();
+        Task<IEnumerable<InventoryReportItem>> GetCriticalStocksAsync();
         Task<decimal> GetTotalStockValueAsync();
         Task<int> MoveStockAsync(int productId, int fromLocationId, int toLocationId, decimal quantity, int userId, string? description = null);
     }
