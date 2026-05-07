@@ -28,10 +28,10 @@ namespace PlumbingAIS.Backend.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Stock>>> GetStocks()
         {
-            
             var stocks = await _unitOfWork.Stocks.GetAllAsync(
                 s => s.Product,
-                s => s.Location
+                s => s.Location,
+                s => s.Location.Warehouse
             );
             return Ok(stocks);
         }
@@ -39,20 +39,33 @@ namespace PlumbingAIS.Backend.Controllers
         [HttpPost("transaction")]
         public async Task<IActionResult> CreateTransaction([FromBody] TransactionRequestDto dto)
         {
-            int transactionId = await _stockService.ProcessGroupTransactionAsync(dto, GetUserId());
-
-            await _logger.LogActionAsync($"Транзакція [{dto.Type}] ID:{transactionId}", GetUserId());
-            return Ok(new { message = "Успішно проведено", transactionId });
+            try
+            {
+                int transactionId = await _stockService.ProcessGroupTransactionAsync(dto, GetUserId());
+                await _logger.LogActionAsync($"Транзакція [{dto.Type}] ID:{transactionId}", GetUserId());
+                return Ok(new { message = "Успішно проведено", transactionId });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
         }
 
         [HttpPost("move")]
         public async Task<IActionResult> MoveStock([FromBody] StockMoveRequestDto dto)
         {
-            int transactionId = await _stockService.MoveStockAsync(
-                dto.ProductId, dto.FromLocationId, dto.ToLocationId, dto.Quantity, GetUserId(), dto.Description);
+            try
+            {
+                int transactionId = await _stockService.MoveStockAsync(
+                    dto.ProductId, dto.FromLocationId, dto.ToLocationId, dto.Quantity, GetUserId(), dto.Description);
 
-            await _logger.LogActionAsync($"Переміщення продукту ID:{dto.ProductId} TRX:{transactionId}", GetUserId());
-            return Ok(new { message = "Успішно виконано", transactionId });
+                await _logger.LogActionAsync($"Переміщення продукту ID:{dto.ProductId} TRX:{transactionId}", GetUserId());
+                return Ok(new { message = "Успішно виконано", transactionId });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
         }
 
         [HttpPut("{id}")]

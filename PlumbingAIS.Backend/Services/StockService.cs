@@ -34,13 +34,15 @@ namespace PlumbingAIS.Backend.Services
                 var stocks = await _unitOfWork.Stocks.GetAllAsync();
                 var stock = stocks.FirstOrDefault(s => s.ProductId == item.ProductId && s.LocationId == item.LocationId);
 
-                bool isIncoming = request.Type.ToLower().Contains("in");
-                bool isMoveTo = request.Type.Equals("Move", StringComparison.OrdinalIgnoreCase) && item == request.Items.Last();
+                bool isIncoming = request.Type.Equals("In", StringComparison.OrdinalIgnoreCase);
+                bool isOutgoing = request.Type.Equals("Out", StringComparison.OrdinalIgnoreCase);
+                bool isMove = request.Type.Equals("Move", StringComparison.OrdinalIgnoreCase);
 
-                if (isIncoming || isMoveTo)
+                if (isIncoming || (isMove && item == request.Items.Last()))
                 {
                     if (stock == null)
                     {
+                        
                         stock = new Stock { ProductId = item.ProductId, LocationId = item.LocationId };
                         stock.AddQuantity(item.Quantity);
                         await _unitOfWork.Stocks.AddAsync(stock);
@@ -51,18 +53,22 @@ namespace PlumbingAIS.Backend.Services
                         _unitOfWork.Stocks.Update(stock);
                     }
                 }
-                else
+                else if (isOutgoing || (isMove && item == request.Items.First()))
                 {
                     if (stock == null || stock.Quantity < item.Quantity)
-                        throw new Exception($"Insufficient stock for Product ID:{item.ProductId} at Location ID:{item.LocationId}");
+                        throw new Exception($"Недостатньо товару на складі (Продукт ID:{item.ProductId}, Локація ID:{item.LocationId})");
 
                     stock.RemoveQuantity(item.Quantity);
-                    if (stock.Quantity <= 0) _unitOfWork.Stocks.Delete(stock);
-                    else _unitOfWork.Stocks.Update(stock);
+
+                    if (stock.Quantity <= 0)
+                        _unitOfWork.Stocks.Delete(stock);
+                    else
+                        _unitOfWork.Stocks.Update(stock);
 
                     await CheckAndNotifyLowStock(item.ProductId);
                 }
 
+                
                 await _unitOfWork.TransactionItems.AddAsync(new TransactionItem
                 {
                     Transaction = transaction,
@@ -101,7 +107,7 @@ namespace PlumbingAIS.Backend.Services
             var moveRequest = new TransactionRequestDto
             {
                 Type = "Move",
-                Description = description ?? "Stock Transfer",
+                Description = description ?? "Внутрішнє переміщення",
                 Items = new List<TransactionItemRequestDto>
                 {
                     new TransactionItemRequestDto { ProductId = productId, LocationId = fromLocationId, Quantity = quantity, Price = 0 },
@@ -114,21 +120,14 @@ namespace PlumbingAIS.Backend.Services
         public async Task<IEnumerable<InventoryReportItem>> GetCriticalStocksAsync()
         {
             var stocks = await _unitOfWork.Stocks.GetAllAsync(s => s.Product);
-
             return stocks
                 .GroupBy(s => s.ProductId)
-                .Select(group =>
+                .Select(group => new InventoryReportItem
                 {
-                    var product = group.First().Product;
-                    var totalQty = group.Sum(s => s.Quantity);
-
-                    return new InventoryReportItem
-                    {
-                        Name = product?.Name ?? "Unknown",
-                        SKU = product?.SKU ?? "—",
-                        CurrentQuantity = totalQty,
-                        MinThreshold = product?.MinThreshold ?? 0
-                    };
+                    Name = group.First().Product?.Name ?? "Unknown",
+                    SKU = group.First().Product?.SKU ?? "—",
+                    CurrentQuantity = group.Sum(s => s.Quantity),
+                    MinThreshold = group.First().Product?.MinThreshold ?? 0
                 })
                 .Where(x => x.CurrentQuantity < x.MinThreshold)
                 .ToList();
