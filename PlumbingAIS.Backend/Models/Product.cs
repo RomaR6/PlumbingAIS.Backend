@@ -14,5 +14,9 @@
         public Category? Category { get; set; }
         public Brand? Brand { get; set; }
         public Unit? Unit { get; set; }
+        public bool IsLowStock(decimal currentQuantity)
+        {
+            return currentQuantity <= MinThreshold;
+        }
     }
 }

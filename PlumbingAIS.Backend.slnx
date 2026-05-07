@@ -1,3 +1,4 @@
 <Solution>
   <Project Path="PlumbingAIS.Backend/PlumbingAIS.Backend.csproj" />
+  <Project Path="PlumbingAIS.Tests/PlumbingAIS.Tests.csproj" Id="7a526f4a-c4c9-4547-b4e1-af9e6c11651a" />
 </Solution>
