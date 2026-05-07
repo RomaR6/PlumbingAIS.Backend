@@ -7,5 +7,11 @@
         public string RackCode { get; set; } = string.Empty;
         public string ShelfCode { get; set; } = string.Empty;
         public Warehouse? Warehouse { get; set; }
+
+        
+        public bool IsLocationAccessible()
+        {
+            return true; 
+        }
     }
 }

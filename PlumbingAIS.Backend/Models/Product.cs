@@ -14,9 +14,21 @@
         public Category? Category { get; set; }
         public Brand? Brand { get; set; }
         public Unit? Unit { get; set; }
+
         public bool IsLowStock(decimal currentQuantity)
         {
             return currentQuantity <= MinThreshold;
+        }
+
+        
+        public decimal CalculateTotalValue(decimal quantity)
+        {
+            return Price * quantity;
+        }
+
+        public void UpdatePrice(decimal newPrice)
+        {
+            
         }
     }
 }

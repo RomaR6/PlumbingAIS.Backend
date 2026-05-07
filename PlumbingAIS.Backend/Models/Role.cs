@@ -6,5 +6,6 @@ namespace PlumbingAIS.Backend.Models
     {
         [NotMapped]
         public string Description { get; set; } = string.Empty;
+        public bool IsAdministrative() => Name == "Admin" || Name == "Manager";
     }
 }

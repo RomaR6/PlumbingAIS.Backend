@@ -26,5 +26,11 @@
 
         public Product? Product { get; set; }
         public Location? Location { get; set; }
+
+        
+        public bool CheckAvailability(decimal requestedQty)
+        {
+            return Quantity >= requestedQty;
+        }
     }
 }

@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 namespace PlumbingAIS.Backend.Models
 {
@@ -13,5 +14,16 @@ namespace PlumbingAIS.Backend.Models
         public User? User { get; set; }
         public Contractor? Contractor { get; set; }
         public ICollection<TransactionItem> TransactionItems { get; set; } = new List<TransactionItem>();
+
+        
+        public bool ValidateTransaction()
+        {
+            return !string.IsNullOrEmpty(Type) && TransactionItems != null;
+        }
+
+        public string GenerateDocumentNumber()
+        {
+            return $"TRX-{Guid.NewGuid().ToString().Substring(0, 8).ToUpper()}";
+        }
     }
 }
