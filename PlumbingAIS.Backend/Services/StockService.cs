@@ -19,13 +19,17 @@ namespace PlumbingAIS.Backend.Services
         {
             var transaction = new Transaction
             {
-                Type = request.Type,
                 UserId = userId,
                 ContractorId = request.ContractorId,
                 Date = DateTime.Now,
                 Description = request.Description,
                 DocumentNumber = $"TRX-{Guid.NewGuid().ToString().Substring(0, 8).ToUpper()}"
             };
+
+            if (Enum.TryParse<TransactionType>(request.Type, true, out var parsedType))
+            {
+                transaction.EnumType = parsedType;
+            }
 
             await _unitOfWork.Transactions.AddAsync(transaction);
 
@@ -34,15 +38,14 @@ namespace PlumbingAIS.Backend.Services
                 var stocks = await _unitOfWork.Stocks.GetAllAsync();
                 var stock = stocks.FirstOrDefault(s => s.ProductId == item.ProductId && s.LocationId == item.LocationId);
 
-                bool isIncoming = request.Type.Equals("In", StringComparison.OrdinalIgnoreCase);
-                bool isOutgoing = request.Type.Equals("Out", StringComparison.OrdinalIgnoreCase);
-                bool isMove = request.Type.Equals("Move", StringComparison.OrdinalIgnoreCase);
+                bool isIncoming = transaction.EnumType == TransactionType.In;
+                bool isOutgoing = transaction.EnumType == TransactionType.Out;
+                bool isMove = transaction.EnumType == TransactionType.Move;
 
                 if (isIncoming || (isMove && item == request.Items.Last()))
                 {
                     if (stock == null)
                     {
-                        
                         stock = new Stock { ProductId = item.ProductId, LocationId = item.LocationId };
                         stock.AddQuantity(item.Quantity);
                         await _unitOfWork.Stocks.AddAsync(stock);
@@ -68,7 +71,6 @@ namespace PlumbingAIS.Backend.Services
                     await CheckAndNotifyLowStock(item.ProductId);
                 }
 
-                
                 await _unitOfWork.TransactionItems.AddAsync(new TransactionItem
                 {
                     Transaction = transaction,

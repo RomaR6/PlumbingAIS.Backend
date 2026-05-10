@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using PlumbingAIS.Backend.Data;
 using PlumbingAIS.Backend.Interfaces;
+using PlumbingAIS.Backend.Models;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
@@ -30,7 +31,7 @@ namespace PlumbingAIS.Backend.Services
 
             if (transaction == null) return Array.Empty<byte>();
 
-            var isMove = transaction.Type.Equals("Move", StringComparison.OrdinalIgnoreCase);
+            var isMove = transaction.EnumType == TransactionType.Move;
             var displayItems = isMove
                 ? transaction.TransactionItems.GroupBy(ti => ti.ProductId).Select(g => g.First()).ToList()
                 : transaction.TransactionItems.ToList();
@@ -49,7 +50,7 @@ namespace PlumbingAIS.Backend.Services
                         row.RelativeItem().Column(col =>
                         {
                             col.Item().Text("Plumbing AIS - Склад").FontSize(20).SemiBold().FontColor(Colors.Blue.Medium);
-                            col.Item().Text($"{GetDocumentTitle(transaction.Type)} № {transaction.DocumentNumber}").FontSize(14).SemiBold();
+                            col.Item().Text($"{GetDocumentTitle(transaction.EnumType)} № {transaction.DocumentNumber}").FontSize(14).SemiBold();
                             col.Item().Text($"Дата: {transaction.Date:dd.MM.yyyy HH:mm}");
                             if (!string.IsNullOrEmpty(transaction.Description))
                                 col.Item().Text(transaction.Description).Italic().FontSize(9);
@@ -65,12 +66,12 @@ namespace PlumbingAIS.Backend.Services
                                 row.RelativeItem().Column(c =>
                                 {
                                     c.Item().Text("Відправник:").SemiBold();
-                                    c.Item().Text(transaction.Type == "In" ? transaction.Contractor?.Name ?? "Постачальник" : "Головний Склад");
+                                    c.Item().Text(transaction.EnumType == TransactionType.In ? transaction.Contractor?.Name ?? "Постачальник" : "Головний Склад");
                                 });
                                 row.RelativeItem().Column(c =>
                                 {
                                     c.Item().Text("Отримувач:").SemiBold();
-                                    c.Item().Text(transaction.Type == "In" ? "Головний Склад" : transaction.Contractor?.Name ?? "Отримувач");
+                                    c.Item().Text(transaction.EnumType == TransactionType.In ? "Головний Склад" : transaction.Contractor?.Name ?? "Отримувач");
                                 });
                             });
                         }
@@ -156,11 +157,11 @@ namespace PlumbingAIS.Backend.Services
             return document.GeneratePdf();
         }
 
-        private string GetDocumentTitle(string type) => type switch
+        private string GetDocumentTitle(TransactionType type) => type switch
         {
-            "In" => "Прибуткова накладна",
-            "Out" => "Видаткова накладна",
-            "Move" => "Акт внутрішнього переміщення",
+            TransactionType.In => "Прибуткова накладна",
+            TransactionType.Out => "Видаткова накладна",
+            TransactionType.Move => "Акт внутрішнього переміщення",
             _ => "Накладна"
         };
     }
